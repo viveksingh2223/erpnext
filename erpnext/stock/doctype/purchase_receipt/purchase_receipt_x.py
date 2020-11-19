@@ -373,26 +373,6 @@ class PurchaseReceipt(BuyingController):
 			pr_doc.update_billing_percentage(update_modified=update_modified)
 
 		self.load_from_db()
-	############### YTPL Code Start ###################
-	def get_pr_details_for_print(self):
-		import copy
-		result= {}
-		pr_returns= frappe.get_list("Purchase Receipt", filters=[["return_against", "!=", "NULL"], ["return_against", "=", self.name]], fields=["name"])
-		result= copy.copy(self)
-		result.final_tax_amount= self.total_taxes_and_charges
-		result.final_total_amount= self.grand_total
-		if pr_returns and len(pr_returns) > 0:
-			for pr_return in pr_returns:
-				pr_doc= frappe.get_doc("Purchase Receipt", pr_return.name)
-				for pr in range(0, len(self.items)):
-					for prr in pr_doc.items:
-						if self.items[pr].item_code == prr.item_code:
-							result.items[pr].rejected_qty=  -(prr.qty) if result.items[pr].rejected_qty == 0 else result.items[pr].rejected_qty + (- prr.qty)
-				setattr(result, 'final_tax_amount', (result.final_tax_amount +  pr_doc.total_taxes_and_charges))
-				setattr(result, 'final_total_amount', (result.final_total_amount + pr_doc.grand_total))
-		else: pass
-		return result
-	############### YTPL Code Start ###################
 
 def update_billed_amount_based_on_po(po_detail, update_modified=True):
 	# Billed against Sales Order directly

@@ -789,72 +789,7 @@ erpnext.stock.StockEntry = erpnext.stock.StockController.extend({
 
 	supplier: function(doc) {
 		erpnext.utils.get_party_details(this.frm, null, null, null);
-	},
-	//YTPL CODE
-    before_save: function(frm){
-        if(!this.frm.doc.is_replace_against_material_issue && this.frm.doc.is_return_against_material_issue){
-            this.set_receipt_type_value("receipt_type", "Returned Item");
-        }
-        else if(this.frm.doc.is_replace_against_material_issue && !this.frm.doc.is_return_against_material_issue){
-            this.set_receipt_type_value("receipt_type", "Replaced Item");
-        }else{
-            this.set_receipt_type_value("receipt_type", "");
-        }
-        if(this.frm.doc.is_replace_against_material_issue && this.frm.doc.is_return_against_material_issue){
-            for (var i=0, l=(this.frm.doc.items || []).length; i<l; i++){
-                var row= this.frm.doc.items[i];
-                if(row.receipt_type == "" || row.receipt_type == undefined){
-                    frappe.throw("Please Select Receipt Type At Row" + i  + "In Item")
-                    validated= false;
-                }
-            }
-        }
-    },
-    set_receipt_type_value: function(fieldname, value) {
-        for (var i=0, l=(this.frm.doc.items || []).length; i<l; i++){
-            var row = this.frm.doc.items[i];
-                frappe.model.set_value(row.doctype, row.name, fieldname, value);
-        }
-        refresh_field("items");
-    },
-
-    is_return_against_material_issue : function(frm){
-        if(this.frm.doc.is_return_against_material_issue || this.frm.doc.is_replace_against_material_issue){
-            this.frm.set_df_property("against_material_issue", "reqd", 1);
-            this.frm.get_field("items").grid.toggle_reqd("receipt_type", true);
-        }
-        else{
-            this.frm.set_df_property("against_material_issue", "reqd", 0);
-            this.frm.get_field("items").grid.toggle_reqd("receipt_type", false);
-        }
-
-        if(!this.frm.doc.is_replace_against_material_issue && this.frm.doc.is_return_against_material_issue){
-            this.set_receipt_type_value("receipt_type", "Returned Item");
-        }
-        else if(this.frm.doc.is_replace_against_material_issue && !this.frm.doc.is_return_against_material_issue){
-            this.set_receipt_type_value("receipt_type", "Replaced Item");
-        }else{
-            this.set_receipt_type_value("receipt_type", "");
-        }
-    },
-    is_replace_against_material_issue : function(frm){
-        if(this.frm.doc.is_replace_against_material_issue || this.frm.doc.is_return_against_material_issue){
-            this.frm.set_df_property("against_material_issue", "reqd", 1);
-            this.frm.get_field("items").grid.toggle_reqd("receipt_type", true);
-        }
-        else{
-            this.frm.set_df_property("against_material_issue", "reqd", 0);
-            this.frm.get_field("items").grid.toggle_reqd("receipt_type", false);
-        }
-        if(!this.frm.doc.is_replace_against_material_issue && this.frm.doc.is_return_against_material_issue){
-            this.set_receipt_type_value("receipt_type", "Returned Item");
-        }
-		else if(this.frm.doc.is_replace_against_material_issue && !this.frm.doc.is_return_against_material_issue){
-            this.set_receipt_type_value("receipt_type", "Replaced Item");
-        }else{
-            this.set_receipt_type_value("receipt_type", "");
-        }
-    }
+	}
 // YTPL CODE END
 		
 });

@@ -38,7 +38,6 @@ def execute(filters=None):
 			if item + warehouse in item_reorder_detail_map:
 				item_reorder_level = item_reorder_detail_map[item + warehouse]["warehouse_reorder_level"]
 				item_reorder_qty = item_reorder_detail_map[item + warehouse]["warehouse_reorder_qty"]
-
 			report_data = [item, item_map[item]["item_name"],
 				item_map[item]["item_group"],
 				item_map[item]["brand"],
@@ -61,7 +60,6 @@ def execute(filters=None):
 				conversion_factors.append(item_map[item].conversion_factor)
 
 			data.append(report_data)
-
 	if filters.get('show_variant_attributes', 0) == 1:
 		columns += ["{}:Data:100".format(i) for i in get_variants_attributes()]
 

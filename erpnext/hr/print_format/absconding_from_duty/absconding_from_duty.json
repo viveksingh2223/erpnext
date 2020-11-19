@@ -1,0 +1,23 @@
+{
+ "align_labels_right": 0,
+ "creation": "2020-08-25 18:11:37.798165",
+ "custom_format": 1,
+ "default_print_language": "en",
+ "disabled": 0,
+ "doc_type": "Employee",
+ "docstatus": 0,
+ "doctype": "Print Format",
+ "font": "Default",
+ "html": "<div style=\"padding-left: 20px;padding-right: 20px; margin:auto; width:700px; height:850px; border-style: solid;border-width:3px;\">\n\t<table style=\"font-size: 15px;\">\n\t\t<tr>\n\t\t\t<td >Date:- {{frappe.utils.formatdate(frappe.utils.today(), 'dd-MMM-YYYY')}}</td>\n\t\t</tr>\n\t\t<br>\n\t\t<tr>\n\t\t\t<td>To,<br><b>{{doc.employee_name}}</b><br>Ticket No:- <b>{{doc.name}}</b></td>\n\t\t</tr>\n\t\t{%- if doc.current_address != None and doc.current_address != 'NULL'-%}\n\t\t\t<tr>\n\t\n\t\t\t\t<td style=\"width: 30%\">{{ doc.current_address}}</td>\n\t\t\t\t<td></td>\n\t\t\t</tr>\n\t\t{%- endif -%}\t\n\t</table>\n\n\t<table style=\"font-size: 15px;\">\n\t\t<tr>\t\n\t\t\t<td><b>Sub: <u>Absconding from duty place</u></b></td>\n\t\t</tr>\n\t\t<tr>\n\t\t\t<td> Dear <b> {{doc.salutation}}. {{doc.employee_name}} </b> Ticket No. <b> {{doc.name}} </b> </td>\n\t\t</tr>\n\t</table>\n\n\t<table style=\"font-size: 15px;\">\n\t\t<tr>\n\t\t\t<td>1.</td>\n\t\t\t<td> You have been posted at <b>{{doc.location}}</B> From <b>{{frappe.utils.formatdate(doc.date_of_joining, 'dd-MMM-YYYY')}}</b></td>\n\t\t</tr>\n\t\t<tr>\n\t\t\t<td>2.</td>\n\t\t\t<td> It is reported that you are remaining absent without leave or permission and have failed to communicate your whereabouts to the office.</td>\n\t\t</tr>\n\t\t<tr>\t\n\t\t\t<td>3</td>\n\t\t\t<td> We are unable to contact you on telephone as the number furnished by you are false/notreachable.</td>\n\t\t</tr>\n\t\t<tr>\t\n\t\t\t<td>4</td>\n\t\t\t<td> You are advised to report to office by <b>{{frappe.utils.formatdate(frappe.utils.add_days(frappe.utils.today(), 10), 'dd-MMM-YYYY')}}</b> failing which it will be assumed that you are not interested to continue service in our organization.</td>\n\t\t</tr>\n\t</table>\n\t<br><br><br>\n\t<p style=\"font-size: 15px;\" >Thanking you,</p>\n\t<br><br><br>\n\t<b style=\"font-size: 15px;\" >For SECURITY & PERSONNEL SERVICES PVT. LTD.</b>\n\t<br><br><br><br>\n\t<p style=\"font-size: 15px;\" >Authorized Signatory</p>\n</div>",
+ "idx": 0,
+ "line_breaks": 0,
+ "modified": "2020-08-25 18:11:37.798165",
+ "modified_by": "Administrator",
+ "module": "HR",
+ "name": "Absconding from duty",
+ "owner": "Administrator",
+ "print_format_builder": 0,
+ "print_format_type": "Server",
+ "show_section_headings": 0,
+ "standard": "Yes"
+}

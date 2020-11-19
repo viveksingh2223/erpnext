@@ -6,6 +6,13 @@ from frappe import _
 def get_data():
 	return [
 		{
+			"module_name": "SPS",
+            "color": "lightgreen",
+            "icon": "fa fa-shield",
+            "type": "module",
+            "label": _("SPS")
+		},
+		{
 			"module_name": "Item",
 			"_doctype": "Item",
 			"color": "#f39c12",
