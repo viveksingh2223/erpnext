@@ -244,7 +244,7 @@ class SalesInvoice(SellingController):
 		if self.items:
 			for items in self.items:
 				if items.attendance and items.site:
-					frappe.db.set_value("SPS Attendance", items.attendance, "status", status, update_modified=update_modified)
+					frappe.db.set_value("People Attendance", items.attendance, "status", status, update_modified=update_modified)
 
 	def on_cancel(self):
 		self.check_close_sales_order("sales_order")
@@ -1455,7 +1455,7 @@ def get_data_to_make_arrears_bill(doctype, arrears_bill_from=None, customer=None
 							if si_items_row.has_key(prev_bill.name): si_items_row[prev_bill.name].append(prev_si_items)
 							else: si_items_row[prev_bill.name] = [prev_si_items]
 
-					else: frappe.throw(_("Salary Structure not linked."))
+					else: frappe.throw(_("Wage Structure not linked."))
 				pass
 			if not si_items_row : frappe.msgprint(_("Rate Diffrence Not Found"))
 		else: frappe.throw(_("Bill not generated after '{0}' for Customer : {1}").format(arrears_bill_from,customer))
@@ -1476,7 +1476,7 @@ def get_wage_rule_details(docname, period_from_date, period_to_date):
 	period_total_days = cint(date_diff(period_to_date, period_from_date) + 1)
 	if not (period_total_days and period_total_days > 0):
 		frappe.throw(_("Billing Period Days Should be Greater Than Zero"))
-	sal_struct = frappe.get_doc('Salary Structure', docname)
+	sal_struct = frappe.get_doc('Wage Structure', docname)
 	if sal_struct:
 		if(sal_struct.docstatus == 1 and sal_struct.is_active == "Yes"):
 			if sal_struct.wage_rule_details:
@@ -1508,9 +1508,9 @@ def get_wage_rule_details(docname, period_from_date, period_to_date):
 							pass
 						pass
 					pass
-				if count == 0: frappe.throw(_("Salary Structure : '{0}'. revision not found between '{1} - {2}' ").format(sal_struct.rule_code,period_start_dt, period_end_dt))
-			else : frappe.throw(_("Wage Rule Revision Not found in Salary Structure: {0}").format(sal_struct.rule_code))
-		else : frappe.throw(_("Salary Structure: {0} should be Active").format(sal_struct.rule_code))
+				if count == 0: frappe.throw(_("Wage Structure : '{0}'. revision not found between '{1} - {2}' ").format(sal_struct.rule_code,period_start_dt, period_end_dt))
+			else : frappe.throw(_("Wage Rule Revision Not found in Wage Structure: {0}").format(sal_struct.rule_code))
+		else : frappe.throw(_("Wage Structure: {0} should be Active").format(sal_struct.rule_code))
 	return {
 		"wr_rate": round(wr_rate,2),
 		"wr_name": wr_name,
@@ -1521,7 +1521,7 @@ def get_wage_rule_details(docname, period_from_date, period_to_date):
 def get_details_to_create_items(att_list,billing_period):
 	att_list= str(att_list).replace("[", "").replace("]", "").replace("\"", "").split(",")
 
-	period = frappe.get_doc('Payroll Period', billing_period)
+	period = frappe.get_doc('Salary Payroll Period', billing_period)
 	period_total_days = cint(date_diff(period.end_date, period.start_date) + 1)
 	days_in_month = cint(formatdate(get_last_day(period.start_date), "dd"))
 
@@ -1539,9 +1539,9 @@ def get_details_to_create_items(att_list,billing_period):
 						else ifnull(ssd.rate, 0.0)
 						end, 0.0) as rate
 						FROM
-							`tabSPS Attendance` as att
+							`tabPeople Attendance` as att
 						INNER JOIN `tabAttendance Details` as ad on	(ad.parent = att.name)
-						INNER JOIN `tabSalary Structure` as ss on (ss.name = ad.wage_rule)
+						INNER JOIN `tabWage Structure` as ss on (ss.name = ad.wage_rule)
 						INNER JOIN `tabWage Rule Details` as ssd on	(ssd.parent = ss.name)
 						WHERE
 							att.attendance_period = '%s' and
@@ -1561,7 +1561,7 @@ def get_details_to_create_items(att_list,billing_period):
 def validate_wagerule(wr,frdt,tdt):
 	wagerule_data = frappe.db.sql("""SELECT ss.name, ssd.name as wagerule_rev
 							FROM
-								`tabSalary Structure` as ss
+								`tabWage Structure` as ss
 							INNER JOIN `tabWage Rule Details` as ssd on	(ssd.parent = ss.name)
 							WHERE
 								ss.name = '%s' and
@@ -1582,7 +1582,7 @@ def validate_wagerule(wr,frdt,tdt):
 def auto_invoice_creation(billing_period):
 	msg= ""
 	pointer= 20001
-	all_customers= frappe.db.sql("""select distinct customer from `tabSPS Attendance` where attendance_period= '%s' and status= 'To Bill'""" %(billing_period), as_dict= True)
+	all_customers= frappe.db.sql("""select distinct customer from `tabPeople Attendance` where attendance_period= '%s' and status= 'To Bill'""" %(billing_period), as_dict= True)
 	if len(all_customers) >  0:
 		att_wise_bill_count= cust_wise_bill_count= standard_bill_count= po_bill_count=0
 		for i in range(0, len(all_customers)):
@@ -1615,7 +1615,7 @@ def get_customer_address(customer):
 	return address_details
 
 def get_customer_attendances(billing_period, customer):
-	all_attendance= frappe.db.sql(""" select name, start_date, end_date from `tabSPS Attendance`
+	all_attendance= frappe.db.sql(""" select name, start_date, end_date from `tabPeople Attendance`
 										where attendance_period= '%s' and status= 'To Bill'
 										and customer= '%s' """ %(billing_period, customer), as_dict= True)
 	return all_attendance
@@ -1624,7 +1624,7 @@ def get_attendance_details(attendance_name):
 	attendance_details= frappe.db.sql("""   select atd.work_type, sum(atd.bill_duty + atd.week_off) as total_bill_duty,
 											sum(atd.present_duty+atd.extra_duty * 2) as total_bill_duty_without_wo, atd.wage_rule,
 											atd.wage_rule_details, att.contract, att.site, att.site_name, att.weekly_off_included
-											from `tabSPS Attendance` att inner join `tabAttendance Details` atd on atd.parent= att.name
+											from `tabPeople Attendance` att inner join `tabAttendance Details` atd on atd.parent= att.name
 											where att.name= '%s' group by atd.work_type; """ %(attendance_name), as_dict= True)
 	return attendance_details
 
@@ -1633,7 +1633,7 @@ def get_price(salary_structure, wage_rule_rev_name, start_date, end_date):
 	wage_rule_rev_name= wage_rule_rev_name
 	total_days= float(date_diff(end_date, start_date)) + 1.0
 	rate= 0.0
-	wage_rule= frappe.get_doc("Salary Structure", salary_structure)
+	wage_rule= frappe.get_doc("Wage Structure", salary_structure)
 	for i in range(0, len(wage_rule.wage_rule_details)):
 		if wage_rule_rev_name == None:
 			if getdate(wage_rule.wage_rule_details[i].from_date) <= getdate(start_date) and getdate(wage_rule.wage_rule_details[i].to_date) >= getdate(end_date):
@@ -1717,7 +1717,7 @@ def customer_or_state_wise_invoicing(customer, billing_period, pointer):
 	bill_data= frappe.db.sql("""select atd.work_type, sum(atd.bill_duty + atd.week_off) as total_bill_duty, atd.wage_rule,
 							sum(atd.present_duty+atd.extra_duty * 2) as total_bill_duty_without_wo,
 							atd.wage_rule_details, att.contract, att.site, att.site_name, att.name, att.weekly_off_included
-							from `tabSPS Attendance` att 
+							from `tabPeople Attendance` att 
 							inner join `tabAttendance Details` atd on atd.parent= att.name
 							where att.customer= '%s' and att.attendance_period= '%s'
 							and att.status= 'To Bill' group by atd.work_type, att.name;""" %(customer.name, billing_period), as_dict= True)
@@ -1754,9 +1754,9 @@ def customer_or_state_wise_invoicing(customer, billing_period, pointer):
 	return pointer + 1
 
 def standard_invoicing(customer, billing_period, pointer):
-	period= frappe.get_doc("Payroll Period", billing_period)
+	period= frappe.get_doc("Salary Payroll Period", billing_period)
 	address= get_customer_address(customer.name) # address display pending
-	all_contract= frappe.get_list("Contract", filters= [
+	all_contract= frappe.get_list("Site Contract", filters= [
 															['party_name', '=',  customer.name],
 															['is_standard', '=', 1],
 															['start_date', '<=', period.start_date],
@@ -1778,7 +1778,7 @@ def standard_invoicing(customer, billing_period, pointer):
 			address= None
 			bill_data= frappe.db.sql("""select ctd.work_type, ctd.quantity, ctd.wage_rule,
 										ct.name as contract, ct.bu_site as site, ct.bu_site_name as site_name 
-										from `tabContract` ct 
+										from `tabSite Contract` ct 
 										inner join `tabContract Details` ctd on ctd.parent= ct.name
 										where ct.name= '%s'; """ %(all_contract[i]["name"]), as_dict= True)
 			for data in bill_data:
@@ -1816,7 +1816,7 @@ def standard_invoicing(customer, billing_period, pointer):
 
 def po_wise_billing(customer, billing_period, pointer):
 	from frappe.utils import date_diff
-	period= frappe.get_doc("Payroll Period", billing_period)
+	period= frappe.get_doc("Salary Payroll Period", billing_period)
 	my_pointer= pointer
 	si_doc= frappe.new_doc("Sales Invoice")
 	si_doc.billing_type= "Standard"
@@ -1827,7 +1827,7 @@ def po_wise_billing(customer, billing_period, pointer):
 	si_doc.si_to_date= period.end_date
 	bill_data= frappe.db.sql("""select c.name as contract, c.party_name, c.bu_site as site, c.bu_site_name as site_name,
 								sum(cd.quantity) as quantity, cd.work_type, cd.wage_rule, c.start_date, c.end_date, cd.from_date, cd.to_date
-								from `tabContract` c
+								from `tabSite Contract` c
 								inner join `tabContract Details` cd on c.name= cd.parent
 								where c.party_name= '%s'
 								and c.start_date <= '%s' and c.end_date >= '%s'
@@ -1836,7 +1836,7 @@ def po_wise_billing(customer, billing_period, pointer):
 								)
 	total_days= float(date_diff(period.end_date, period.start_date)) + 1.0
 	for data in bill_data:
-		wage_rule= frappe.get_doc("Salary Structure", data["wage_rule"])
+		wage_rule= frappe.get_doc("Wage Structure", data["wage_rule"])
 		rate= 0.0
 		for i in range(0, len(wage_rule.wage_rule_details)):
 			if getdate(wage_rule.wage_rule_details[i].from_date) <= getdate(period.start_date) and getdate(wage_rule.wage_rule_details[i].to_date) >= getdate(period.end_date):

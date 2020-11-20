@@ -248,13 +248,13 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
     get_contract_btn: function() {
 	    //if(cur_frm.doc.billing_period != undefined && cur_frm.doc.customer != undefined && cur_frm.doc.billing_period != "" && cur_frm.doc.customer != ""){
 	    if(me.frm.doc.billing_period && me.frm.doc.customer){
-	        frappe.model.with_doc("Payroll Period", cur_frm.doc.billing_period, function() {
-                var billing_period_doc = frappe.model.get_doc("Payroll Period", cur_frm.doc.billing_period);
+	        frappe.model.with_doc("Salary Payroll Period", cur_frm.doc.billing_period, function() {
+                var billing_period_doc = frappe.model.get_doc("Salary Payroll Period", cur_frm.doc.billing_period);
                 var bill_type_flag=0;
                 if((me.frm.doc.billing_type).toUpperCase() == 'STANDARD') bill_type_flag=1;
                 map_doc({
                     //method: "erpnext.crm.doctype.contract.contract.make_sales_invoice",
-                    source_doctype: "Contract",
+                    source_doctype: "Site Contract",
                     target: me.frm,
                     date_field:"start_date",
                     setters: {
@@ -276,10 +276,10 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
 	},
 	get_attendance_btn: function(frm) {
         if(me.frm.doc.billing_type=="Attendance" && me.frm.doc.billing_period && me.frm.doc.customer){
-	        frappe.model.with_doc("Payroll Period", cur_frm.doc.billing_period, function() {
-                var billing_period_doc = frappe.model.get_doc("Payroll Period", cur_frm.doc.billing_period);
+	        frappe.model.with_doc("Salary Payroll Period", cur_frm.doc.billing_period, function() {
+                var billing_period_doc = frappe.model.get_doc("Salary Payroll Period", cur_frm.doc.billing_period);
                 map_att_doc({
-                    source_doctype: "SPS Attendance",
+                    source_doctype: "People Attendance",
                     target: me.frm,
                     me: me,
                     date_field:"start_date",
@@ -310,7 +310,7 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
                     frappe.call({
                         method: "frappe.client.get",
                         args: {
-                            doctype: "SPS Attendance",
+                            doctype: "People Attendance",
                             filters: {
                                 "attendance_period": me.frm.doc.billing_period,
                                 "customer": me.frm.doc.customer,
@@ -674,8 +674,8 @@ var map_doc = function(opts) {
                                 var si_item = frappe.model.add_child(cur_frm.doc, 'Sales Invoice Item', 'items');
 
                                 // Get linked Period to calculate QTY based on Date's
-                                frappe.model.with_doc("Payroll Period", cur_frm.doc.billing_period, function() {
-                                    var billing_period_doc = frappe.model.get_doc("Payroll Period", cur_frm.doc.billing_period);
+                                frappe.model.with_doc("Salary Payroll Period", cur_frm.doc.billing_period, function() {
+                                    var billing_period_doc = frappe.model.get_doc("Salary Payroll Period", cur_frm.doc.billing_period);
                                     //console.log("@@####billing_period_doc#####",billing_period_doc)
                                     var period_total_days=billing_period_doc.total_days;
                                     var qty=0;
@@ -773,8 +773,8 @@ var map_att_doc = function(opts) {
 	var _map = function() {
 	    // If single site set address
 	    if(opts.source_name.length==1){
-            frappe.model.with_doc("SPS Attendance", opts.source_name[0], function() {
-                var doc = frappe.model.get_doc("SPS Attendance", opts.source_name[0]);
+            frappe.model.with_doc("People Attendance", opts.source_name[0], function() {
+                var doc = frappe.model.get_doc("People Attendance", opts.source_name[0]);
                 cur_frm.set_value('site', doc.site);
             });
 	    }else{
