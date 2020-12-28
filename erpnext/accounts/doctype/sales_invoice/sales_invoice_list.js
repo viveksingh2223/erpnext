@@ -29,7 +29,7 @@ frappe.listview_settings['Sales Invoice'] = {
                                                 fieldtype: "Link",
                                                 fieldname: "billing_period",
                                                 label: __("Please select a billing Period"),
-                                                options: "Payroll Period",
+                                                options: "Salary Payroll Period",
                                                 reqd: 1,
                                             },
                                             {"fieldtype": "Section Break","fieldname": "sectionbreak12"},

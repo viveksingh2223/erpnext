@@ -92,7 +92,7 @@ def get_columns(filters):
 	]
 
 	for day in range(filters["total_days_in_month"]):
-		columns.append(cstr(day+1) +"::20")
+		columns.append(_(cstr(day+1)) +":Data:80")
 
 	columns += [_("Total Present") + ":Float:80", _("Total Leaves") + ":Float:80",  _("Total Absent") + ":Float:80"]
 	return columns
@@ -106,7 +106,7 @@ def get_attendance_list(conditions, filters):
 	for d in attendance_list:
 		att_map.setdefault(d.employee, frappe._dict()).setdefault(d.day_of_month, "")
 		att_map[d.employee][d.day_of_month] = d.status
-
+	print(att_map)
 	return att_map
 
 def get_conditions(filters):
