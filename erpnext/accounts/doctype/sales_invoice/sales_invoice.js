@@ -245,11 +245,8 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
 			}, __("Get items from"));
 	},
 	/*************************** Custom YTPL*****************************/
-    get_contract_btn: function(frm) {
-		console.log("Contract HUA KYA HAI")
-		/*
+    get_contract_btn:function(frm){
 	    //if(cur_frm.doc.billing_period != undefined && cur_frm.doc.customer != undefined && cur_frm.doc.billing_period != "" && cur_frm.doc.customer != ""){
-		console.log("Contract HUA KYA HAI")
 	    if(me.frm.doc.billing_period && me.frm.doc.customer){
 	        frappe.model.with_doc("Salary Payroll Period", cur_frm.doc.billing_period, function() {
                 var billing_period_doc = frappe.model.get_doc("Salary Payroll Period", cur_frm.doc.billing_period);
@@ -278,7 +275,7 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
             })
 	    }else{
 	        frappe.msgprint(__("Select Billing Period and Customer to Load Contracts"))
-	    }*/
+	    }
 	},
 	get_attendance_btn: function(frm) {
         if(me.frm.doc.billing_type=="Attendance" && me.frm.doc.billing_period && me.frm.doc.customer){
