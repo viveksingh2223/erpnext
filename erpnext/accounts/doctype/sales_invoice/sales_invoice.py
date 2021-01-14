@@ -1473,6 +1473,7 @@ def rate_revision_si(ref_si,item_code,frm_dt,to_dt):
 
 @frappe.whitelist()
 def get_wage_rule_details(docname, period_from_date, period_to_date):
+	print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@2")
 	period_total_days = cint(date_diff(period_to_date, period_from_date) + 1)
 	if not (period_total_days and period_total_days > 0):
 		frappe.throw(_("Billing Period Days Should be Greater Than Zero"))
@@ -1581,7 +1582,7 @@ def validate_wagerule(wr,frdt,tdt):
 @frappe.whitelist()
 def auto_invoice_creation(billing_period):
 	msg= ""
-	pointer= 20001
+	pointer= 30001
 	all_customers= frappe.db.sql("""select distinct customer from `tabPeople Attendance` where attendance_period= '%s' and status= 'To Bill'""" %(billing_period), as_dict= True)
 	if len(all_customers) >  0:
 		att_wise_bill_count= cust_wise_bill_count= standard_bill_count= po_bill_count=0

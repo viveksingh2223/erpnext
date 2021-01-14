@@ -245,34 +245,40 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
 			}, __("Get items from"));
 	},
 	/*************************** Custom YTPL*****************************/
-    get_contract_btn: function() {
+    get_contract_btn: function(frm) {
+		console.log("Contract HUA KYA HAI")
+		/*
 	    //if(cur_frm.doc.billing_period != undefined && cur_frm.doc.customer != undefined && cur_frm.doc.billing_period != "" && cur_frm.doc.customer != ""){
+		console.log("Contract HUA KYA HAI")
 	    if(me.frm.doc.billing_period && me.frm.doc.customer){
 	        frappe.model.with_doc("Salary Payroll Period", cur_frm.doc.billing_period, function() {
                 var billing_period_doc = frappe.model.get_doc("Salary Payroll Period", cur_frm.doc.billing_period);
                 var bill_type_flag=0;
-                if((me.frm.doc.billing_type).toUpperCase() == 'STANDARD') bill_type_flag=1;
-                map_doc({
-                    //method: "erpnext.crm.doctype.contract.contract.make_sales_invoice",
-                    source_doctype: "Site Contract",
-                    target: me.frm,
-                    date_field:"start_date",
-                    setters: {
-                        //customer: me.frm.doc.customer || undefined,
-                    },
-                    get_query_filters: {
-                        docstatus: 1,
-                        party_name: ["=", me.frm.doc.customer],
-                        start_date: ['<=', billing_period_doc.end_date],
-                        end_date: ['>=', billing_period_doc.start_date],
-                        is_standard: ['=', bill_type_flag], // filter stander contract based on bill type
-                        company: me.frm.doc.company
-                    }
-                })
+                if((me.frm.doc.billing_type).toUpperCase() == 'STANDARD'){
+				    bill_type_flag=1;
+					map_doc({
+						//method: "erpnext.crm.doctype.contract.contract.make_sales_invoice",
+						source_doctype: "Site Contract",
+						target: me.frm,
+						me:me,
+						date_field:"start_date",
+						setters: {
+							//customer: me.frm.doc.customer || undefined,
+						},
+						get_query_filters: {
+							docstatus: 1,
+							party_name: ["=", me.frm.doc.customer],
+							start_date: ['<=', billing_period_doc.end_date],
+							end_date: ['>=', billing_period_doc.start_date],
+							is_standard: ['=', bill_type_flag], // filter stander contract based on bill type
+							company: me.frm.doc.company
+						}
+					})
+				}
             })
 	    }else{
 	        frappe.msgprint(__("Select Billing Period and Customer to Load Contracts"))
-	    }
+	    }*/
 	},
 	get_attendance_btn: function(frm) {
         if(me.frm.doc.billing_type=="Attendance" && me.frm.doc.billing_period && me.frm.doc.customer){
@@ -644,6 +650,7 @@ $.extend(cur_frm.cscript, new erpnext.accounts.SalesInvoiceController({frm: cur_
 
 /*************************** Custom YTPL*****************************/
 var map_doc = function(opts) {
+	console.log("YE HUA CALL ATLEAST")
 	if(opts.get_query_filters) {
 		opts.get_query = function() {
 			return {filters: opts.get_query_filters};
@@ -676,7 +683,7 @@ var map_doc = function(opts) {
                                 // Get linked Period to calculate QTY based on Date's
                                 frappe.model.with_doc("Salary Payroll Period", cur_frm.doc.billing_period, function() {
                                     var billing_period_doc = frappe.model.get_doc("Salary Payroll Period", cur_frm.doc.billing_period);
-                                    //console.log("@@####billing_period_doc#####",billing_period_doc)
+                                    console.log("@@####billing_period_doc#####",billing_period_doc)
                                     var period_total_days=billing_period_doc.total_days;
                                     var qty=0;
                                     for(var i=0; i < wt_curr_posting[req_row.work_type].length; i++){
