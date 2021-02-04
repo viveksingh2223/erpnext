@@ -1190,6 +1190,121 @@ class SalesInvoice(SellingController):
 			from erpnext.accounts.general_ledger import make_gl_entries
 			make_gl_entries(gl_entries, cancel=(self.docstatus == 2), merge_entries=True)
 
+	def get_details_to_create_items(self, att_list, billing_period):
+		self.items= []
+		period = frappe.get_doc('Salary Payroll Period', billing_period)
+		if att_list:
+			att_data= None
+			if len(att_list) > 1:
+				att_data = frappe.db.sql("""select atd.work_type, sum(atd.bill_duty + atd.week_off) as total_bill_duty, 
+										sum(atd.present_duty+atd.extra_duty * 2) as total_bill_duty_without_wo, atd.wage_rule, att.name,  
+										atd.wage_rule_details, att.contract, att.site, att.site_name, att.weekly_off_included, att.company 
+										from `tabPeople Attendance` att inner join `tabAttendance Details` atd on atd.parent= att.name 
+										where att.name in %s group by att.name, atd.work_type;"""%(str(tuple(att_list))), as_dict= True)
+			else:
+				att_data = frappe.db.sql("""select atd.work_type, sum(atd.bill_duty + atd.week_off) as total_bill_duty, 
+                                        sum(atd.present_duty+atd.extra_duty * 2) as total_bill_duty_without_wo, atd.wage_rule, att.name,  
+                                        atd.wage_rule_details, att.contract, att.site, att.site_name, att.weekly_off_included, att.company 
+                                        from `tabPeople Attendance` att inner join `tabAttendance Details` atd on atd.parent= att.name 
+                                        where att.name=  '%s' group by att.name, atd.work_type;"""%(str(att_list[0])), as_dict= True)
+
+			company_income_acount, cost_center= frappe.db.get_value('Company', att_data[0]['company'], ['default_income_account', 'cost_center'])
+			for row in att_data:
+				rate= self.get_price(row.wage_rule, row.wage_rule_details, period.start_date, period.end_date) 
+				if rate == 0.0:
+					frappe.throw(_("WageRule: {0} not valid for Contract : {1} | WT : {2}.").format(row.wage_rule,row.contract,row.work_type))
+				else:
+					self.append('items',{   'rate': float(rate),
+											'price_list_rate': float(rate),
+											'item_code': row.work_type,
+											'item_name': row.work_type,
+											'description': row.work_type,
+											'uom': 'Nos',
+											'qty': row.total_bill_duty if row.weekly_off_included == 0 else row.total_bill_duty_without_wo,
+											'contract': row.contract,
+											'site': row.site,
+											'attendance': row.name,
+											'salary_structure': row.wage_rule,
+											'ss_revision_name': row.wage_rule_details,
+											'ss_revision_rate': float(rate),
+											'item_from_date': period.start_date,
+											'item_to_date': period.end_date,
+											'income_account': company_income_acount,
+											'cost_center': cost_center
+										}
+								)
+		return "Item Inserted Successfully" 
+
+	def get_price(self, salary_structure, wage_rule_rev_name, start_date, end_date):
+		wage_rule_rev_name= wage_rule_rev_name
+		total_days= float(date_diff(end_date, start_date)) + 1.0
+		rate= 0.0
+		wage_rule= frappe.get_doc("Wage Structure", salary_structure)
+		for i in range(0, len(wage_rule.wage_rule_details)):
+			if wage_rule_rev_name == None:
+				if getdate(wage_rule.wage_rule_details[i].from_date) <= getdate(start_date) and getdate(wage_rule.wage_rule_details[i].to_date) >= getdate(end_date):
+					wage_rule_rev_name= wage_rule.wage_rule_details[i].name
+					if wage_rule.wage_rule_details[i].rate_per == "Month":
+						if wage_rule.wage_rule_details[i].wage_days == "Fixed": # new changes
+							rate= round(wage_rule.wage_rule_details[i].rate / wage_rule.wage_rule_details[i].total_wage_days, 2)
+						else:
+							rate= round(wage_rule.wage_rule_details[i].rate / total_days, 2)
+					else: rate= round(wage_rule.wage_rule_details[i].rate, 2)
+			elif wage_rule.wage_rule_details[i].name == wage_rule_rev_name:
+				if wage_rule.wage_rule_details[i].rate_per == "Month":
+					rate= round(wage_rule.wage_rule_details[i].rate / total_days, 2)
+				else: rate= round(wage_rule.wage_rule_details[i].rate, 2)
+			else: pass
+		return rate, wage_rule_rev_name
+
+	def get_items_for_standard_billing(self, contract_list, period_from_date, period_to_date):
+		self.items= []
+		contract_data= []
+		if len(contract_list) > 1:
+			contract_data= frappe.db.sql(""" select ctd.work_type, ctd.quantity, ctd.wage_rule, ctd.from_date, ctd.to_date, 
+											ct.name as contract, ct.bu_site as site, ct.bu_site_name as site_name, ct.company 
+											from `tabSite Contract` ct 
+											inner join `tabContract Details` ctd on ctd.parent= ct.name 
+											inner join my_date_series ON ( dateval >= ctd.from_date and dateval <= ctd.to_date) 
+											where ct.name in %s and dateval >= '%s' and dateval <= '%s' 
+											group by ct.name, ctd.work_type;""" %(str(tuple(contract_list)), period_from_date, period_to_date), as_dict= True)
+		else:
+			 contract_data= frappe.db.sql("""select ctd.work_type, ctd.quantity, ctd.wage_rule, ctd.from_date, ctd.to_date, 
+											ct.name as contract, ct.bu_site as site, ct.bu_site_name as site_name, ct.company 
+											from `tabSite Contract` ct inner join `tabContract Details` ctd on ctd.parent= ct.name 
+											inner join my_date_series ON ( dateval >= ctd.from_date and dateval <= ctd.to_date) 
+											where ct.name = '%s' and dateval >= '%s' and dateval <= '%s' 
+											group by ct.name, ctd.work_type;""" %(contract_list[0], period_from_date, period_to_date), as_dict= True)
+
+		company_income_acount, cost_center= frappe.db.get_value('Company', contract_data[0]['company'], ['default_income_account', 'cost_center'])
+		if len(contract_data) > 0:
+			for row in contract_data:
+				rate, wage_rule_details= self.get_price(row.wage_rule, None, period_from_date, period_to_date)
+				from_date=  row.from_date if str(row.from_date) >= str(period_from_date) else period_from_date
+				to_date= row.to_date if str(row.to_date) <= str(period_to_date) else period_to_date
+				total_days= date_diff(to_date, from_date) + 1
+				print(from_date, to_date, total_days)
+				self.append('items',{   'rate': float(rate),
+										'price_list_rate': float(rate),
+										'item_code': row.work_type,
+										'item_name': row.work_type,
+										'description': row.work_type,
+										'uom': 'Nos',
+										'qty': int(row.quantity) * total_days,
+										'contract': row.contract,
+										'site': row.site,
+										'salary_structure': row.wage_rule,
+										'ss_revision_name': wage_rule_details,
+										'ss_revision_rate': float(rate),
+										'item_from_date': period_from_date,
+										'item_to_date': period_to_date,
+										'income_account': company_income_acount,
+										'cost_center': cost_center
+									}
+							)
+		else:
+			frappe.throw("No Data Found For Selected Contract")
+		return "Item Inserted Successfully"
 
 def booked_deferred_revenue():
 	# check for the sales invoice for which GL entries has to be done
@@ -1473,7 +1588,6 @@ def rate_revision_si(ref_si,item_code,frm_dt,to_dt):
 
 @frappe.whitelist()
 def get_wage_rule_details(docname, period_from_date, period_to_date):
-	print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@2")
 	period_total_days = cint(date_diff(period_to_date, period_from_date) + 1)
 	if not (period_total_days and period_total_days > 0):
 		frappe.throw(_("Billing Period Days Should be Greater Than Zero"))
@@ -1517,72 +1631,14 @@ def get_wage_rule_details(docname, period_from_date, period_to_date):
 		"wr_name": wr_name,
 		"wr_revision": wr_revision
 	}
-
-@frappe.whitelist()
-def get_details_to_create_items(att_list,billing_period):
-	att_list= str(att_list).replace("[", "").replace("]", "").replace("\"", "").split(",")
-
-	period = frappe.get_doc('Salary Payroll Period', billing_period)
-	period_total_days = cint(date_diff(period.end_date, period.start_date) + 1)
-	days_in_month = cint(formatdate(get_last_day(period.start_date), "dd"))
-
-	if not (period_total_days and period_total_days > 0):
-		frappe.throw(_("Billing Period Days Should be Greater Than Zero"))
-	if att_list:
-		att_data = frappe.db.sql("""SELECT att.name,ss.name as wage_rule,ssd.name as wr_revision, ssd.revision, ssd.from_date, ssd.to_date,
-						att.contract, att.site, att.site_name, att.total_days, ad.work_type, ifnull(sum(ad.bill_duty),0) as bill_duty,
-						ifnull(
-						case when att.weekly_off_included = 1 then ifnull(sum(ad.present_duty + ad.week_off + (ad.extra_duty*2)), 0.0)
-						else ifnull(sum(ad.present_duty + (ad.extra_duty*2)), 0.0)
-						end, 0.0) as qty,
-						ifnull(
-						case when ssd.rate_per = 'Month' then ifnull(ssd.rate/%s, 0.0)
-						else ifnull(ssd.rate, 0.0)
-						end, 0.0) as rate
-						FROM
-							`tabPeople Attendance` as att
-						INNER JOIN `tabAttendance Details` as ad on	(ad.parent = att.name)
-						INNER JOIN `tabWage Structure` as ss on (ss.name = ad.wage_rule)
-						INNER JOIN `tabWage Rule Details` as ssd on	(ssd.parent = ss.name)
-						WHERE
-							att.attendance_period = '%s' and
-							att.name in (%s) and
-							att.docstatus=1 and
-							ss.docstatus=1
-						GROUP BY att.name, att.contract, att.total_days, ad.work_type""" %
-								 (days_in_month,billing_period,(', '.join(['%s'] * len(att_list)))), tuple([cont for cont in att_list]),as_dict=1)
-
-		for row in att_data:
-			valid_wr = validate_wagerule(row.wage_rule, period.start_date, period.end_date)
-			if not valid_wr:
-				frappe.throw(_("WageRule: {0} not valid for Contract : {1} | WT : {2}.").format(row.wage_rule,row.contract,row.work_type))
-	return att_data
-
-@frappe.whitelist()
-def validate_wagerule(wr,frdt,tdt):
-	wagerule_data = frappe.db.sql("""SELECT ss.name, ssd.name as wagerule_rev
-							FROM
-								`tabWage Structure` as ss
-							INNER JOIN `tabWage Rule Details` as ssd on	(ssd.parent = ss.name)
-							WHERE
-								ss.name = '%s' and
-								ssd.from_date <= '%s' and
-								ssd.to_date >= '%s' and
-								ss.is_active='Yes' and
-								ss.status='Active' and
-								ss.docstatus=1
-							 	GROUP BY ss.name, ssd.name """ %(wr,frdt,tdt), as_dict=1)
-	if wagerule_data:
-		return wagerule_data
-	else : return None
-################################ Custom YTPL ############################
-
-
 ################# YTPL Code Start ###########################
 @frappe.whitelist()
 def auto_invoice_creation(billing_period):
 	msg= ""
 	pointer= 30001
+	data= frappe.db.sql("""select bill_number from `tabSales Invoice` order by bill_number desc limit 1;""", as_dict= True)
+	if len(data) > 0:
+		pointer= int(data[0]["bill_number"]) + 1
 	all_customers= frappe.db.sql("""select distinct customer from `tabPeople Attendance` where attendance_period= '%s' and status= 'To Bill'""" %(billing_period), as_dict= True)
 	if len(all_customers) >  0:
 		att_wise_bill_count= cust_wise_bill_count= standard_bill_count= po_bill_count=0
@@ -1755,13 +1811,15 @@ def customer_or_state_wise_invoicing(customer, billing_period, pointer):
 	return pointer + 1
 
 def standard_invoicing(customer, billing_period, pointer):
+	from frappe.utils import date_diff
 	period= frappe.get_doc("Salary Payroll Period", billing_period)
 	address= get_customer_address(customer.name) # address display pending
 	all_contract= frappe.get_list("Site Contract", filters= [
 															['party_name', '=',  customer.name],
 															['is_standard', '=', 1],
 															['start_date', '<=', period.start_date],
-															['end_date', '>=', period.end_date]
+															['end_date', '>=', period.end_date],
+															['docstatus', '=', 1]
 														],
 											fields= ['name'])
 	if len(all_contract) > 0:
@@ -1777,16 +1835,20 @@ def standard_invoicing(customer, billing_period, pointer):
 			si_doc.si_to_date= period.end_date
 			#si_doc.customer_name= customer.customer_code
 			address= None
-			bill_data= frappe.db.sql("""select ctd.work_type, ctd.quantity, ctd.wage_rule,
+			bill_data= frappe.db.sql("""select ctd.work_type, ctd.quantity, ctd.wage_rule, ctd.from_date, ctd.to_date, 
 										ct.name as contract, ct.bu_site as site, ct.bu_site_name as site_name 
 										from `tabSite Contract` ct 
 										inner join `tabContract Details` ctd on ctd.parent= ct.name
-										where ct.name= '%s'; """ %(all_contract[i]["name"]), as_dict= True)
+										where ct.name= '%s' and and ((ctd.from_date <= '%s' and ctd.to_date >= '%s') 
+										or (ctd.from_date <= '%s' and ctd.to_date <= '%s')); """ %(all_contract[i]["name"]), as_dict= True)
 			for data in bill_data:
 				rate= get_price(data["wage_rule"], None, period.start_date, period.end_date)
+				from_date=  data["from_date"] if str(data["from_date"]) >= str(period.start_date) else period.start_date
+				to_date= data["to_date"] if str(data["to_date"]) <= str(period.end_date) else period.end_date
+				total_days= date_diff(to_date, from_date) + 1 
 				si_doc.append('items', {"item_code": data["work_type"],
                                     	"item_name": data["work_type"],
-	                                    "qty": (int(data["quantity"]) *  int(period.total_days)),
+	                                    "qty": (int(data["quantity"]) *  int(total_days)),
     	                                "uom": "Nos",
         	                            "price_list_rate":rate,
             	                        "rate": rate,
@@ -1832,7 +1894,7 @@ def po_wise_billing(customer, billing_period, pointer):
 								inner join `tabContract Details` cd on c.name= cd.parent
 								where c.party_name= '%s'
 								and c.start_date <= '%s' and c.end_date >= '%s'
-								and cd.from_date <= '%s' and cd.to_date >= '%s'
+								and cd.from_date <= '%s' and cd.to_date >= '%s' and c.docstatus=1
 								group by c.bu_site, cd.work_type;""" %(customer.name, period.start_date, period.end_date, period.start_date, period.end_date), as_dict= True
 								)
 	total_days= float(date_diff(period.end_date, period.start_date)) + 1.0
@@ -1857,7 +1919,7 @@ def po_wise_billing(customer, billing_period, pointer):
 								"site_name": data["site_name"],
 								"item_from_date": period.start_date,
 								"item_to_date": period.end_date
-			}
+								}
 			)
 	address= get_customer_address(customer.customer_code)# address display pending
 	if address and address.gst_state != None:

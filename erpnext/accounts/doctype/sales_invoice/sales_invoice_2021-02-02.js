@@ -656,22 +656,86 @@ var map_doc = function(opts) {
         frappe.model.clear_table(cur_frm.doc, "items");
         cur_frm.refresh_field("items");
 		if(cur_frm.doc.customer && cur_frm.doc.billing_period) {
-			// Get linked Wage Rule to Rate
-			var billing_period_doc = frappe.model.get_doc("Salary Payroll Period", cur_frm.doc.billing_period);
-			frappe.call({
-				method: "get_items_for_standard_billing",
-				doc: cur_frm.doc,
-				args:{	"contract_list": opts.source_name, 
-						"period_from_date": billing_period_doc.start_date,
-						"period_to_date": billing_period_doc.end_date
-					},
-				callback: function(r) {
-					if(r.message) {
-						cur_frm.save()
-	                    cur_frm.refresh()
-					}
-				}
-           	});
+            opts.source_name.forEach(function(src) {
+                var wt_curr_posting = {};
+                frappe.model.with_doc(opts.source_doctype, src, function(r) {
+                    var source_doc = frappe.model.get_doc(opts.source_doctype, src); //source_doc = Contract
+                    // Get all Posting rows from Posting Table
+                    $.each(source_doc.posting || [], function(index, row) {
+                        if(row.employee != undefined && row.employee != null && row.employee.trim() != ""){
+                            if(wt_curr_posting.hasOwnProperty(row.work_type)){
+                                wt_curr_posting[row.work_type].push(row)
+                            }else{
+                                wt_curr_posting[row.work_type]= [row]
+                            }
+                        }
+                    })
+                    // Get all Contract Requirements rows
+                    $.each(source_doc.contract_details || [], function(index, req_row) {
+                        if (wt_curr_posting.hasOwnProperty(req_row.work_type)) {
+                            if(wt_curr_posting[req_row.work_type].length > 0){
+                                var si_item = frappe.model.add_child(cur_frm.doc, 'Sales Invoice Item', 'items');
+
+                                // Get linked Period to calculate QTY based on Date's
+                                frappe.model.with_doc("Salary Payroll Period", cur_frm.doc.billing_period, function() {
+                                    var billing_period_doc = frappe.model.get_doc("Salary Payroll Period", cur_frm.doc.billing_period);
+                                    console.log("@@####billing_period_doc#####",billing_period_doc)
+                                    var period_total_days=billing_period_doc.total_days;
+                                    var qty=0;
+                                    for(var i=0; i < wt_curr_posting[req_row.work_type].length; i++){
+                                        var period_from_date = new Date(billing_period_doc.start_date);
+                                        var period_to_date = new Date(billing_period_doc.end_date);
+                                        var posting_row_frdt = new Date(wt_curr_posting[req_row.work_type][i].from_date);
+                                        var posting_row_todt = new Date(wt_curr_posting[req_row.work_type][i].to_date);
+
+                                        var frm_dt;
+                                        var to_dt;
+                                        if(posting_row_frdt >= period_from_date){
+                                            frm_dt= posting_row_frdt;
+                                        }else{
+                                            frm_dt= period_from_date;
+                                        }
+                                        if(posting_row_todt <= period_to_date){
+                                            to_dt= posting_row_todt;
+                                        }else{
+                                            to_dt= period_to_date;
+                                        }
+                                        qty = qty + flt(frappe.datetime.get_day_diff(to_dt, frm_dt)+1);
+                                        console.log("#### Row Qty ::::",(frappe.datetime.get_day_diff(to_dt, frm_dt)+1)+"::::"+wt_curr_posting[req_row.work_type][i].work_type)
+                                    }
+                                    // Get linked Wage Rule to Rate
+                                    frappe.call({
+                                        "method": "erpnext.accounts.doctype.sales_invoice.sales_invoice.get_wage_rule_details",
+                                        "args": {
+                                            "docname": req_row.wage_rule,
+                                            "period_from_date": billing_period_doc.start_date,
+                                            "period_to_date": billing_period_doc.end_date
+                                        },
+                                        callback: function(r) {
+                                            if(r.message) {
+                                                console.log("##### map_doc() ::: message #####",r.message)
+                                                frappe.model.set_value(si_item.doctype, si_item.name, 'rate', flt(r.message.wr_rate)); //set row Rate
+                                                frappe.model.set_value(si_item.doctype, si_item.name, 'qty', flt(qty)); //set row QTY
+                                                frappe.model.set_value(si_item.doctype, si_item.name, 'price_list_rate', flt(r.message.wr_rate)); //set row Price List Rate
+                                                frappe.model.set_value(si_item.doctype, si_item.name, 'item_code', req_row.work_type); //set Item
+
+                                                frappe.model.set_value(si_item.doctype, si_item.name, 'contract', src); // Customer Contract linked
+                                                frappe.model.set_value(si_item.doctype, si_item.name, 'salary_structure', req_row.wage_rule); // Salary structure
+                                                frappe.model.set_value(si_item.doctype, si_item.name, 'ss_revision_name', r.message.wr_name); // Revision Name
+                                                frappe.model.set_value(si_item.doctype, si_item.name, 'ss_revision_no', r.message.wr_revision); // Revision No
+                                                frappe.model.set_value(si_item.doctype, si_item.name, 'ss_revision_rate', flt(r.message.wr_rate)); // Rate Based on Revision
+
+                                                frappe.model.set_value(si_item.doctype, si_item.name, 'item_from_date', billing_period_doc.start_date); // Billing Period Start Date
+                                                frappe.model.set_value(si_item.doctype, si_item.name, 'item_to_date', billing_period_doc.end_date); // Billing Period End Date
+                                            }
+                                        }
+                                    });
+                                });
+                            }
+                        }
+                    });
+                })
+            });
         }else{
             frappe.msgprint(__("Select Billing Period and Contract before load contracts"));
         }
