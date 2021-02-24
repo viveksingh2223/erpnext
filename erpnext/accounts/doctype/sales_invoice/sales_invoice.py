@@ -1196,7 +1196,18 @@ class SalesInvoice(SellingController):
         period_doc= frappe.get_doc('Salary Payroll Period', period)
         sunday_count, sunday_count_details= get_wo_count(start_date, end_date, 'Sunday', None, period_doc)
         return sunday_count
-
+    
+    def get_total_qty(self, total_bill_duty, sunday_count, contract, work_type):
+        bill_duty= total_bill_duty
+        total_qty= 0
+        if contract.is_relieving_charges_includes:
+            for row in contract.contract_details:
+                if row.work_type in ["GD1", "GMW"] and work_type in ["GD1", "GMW"]:
+                    total_qty= bill_duty + (sunday_count * row.quantity)
+                else: total_qty= bill_duty
+        else: total_qty= bill_duty
+        return total_qty  
+                    
     def get_details_to_create_items(self, att_list, billing_period):
         self.items= []
         period = frappe.get_doc('Salary Payroll Period', billing_period)
@@ -1216,10 +1227,10 @@ class SalesInvoice(SellingController):
                                         where att.name=  '%s' group by att.name, atd.work_type;"""%(str(att_list[0])), as_dict= True)
 
             company_income_acount, cost_center= frappe.db.get_value('Company', att_data[0]['company'], ['default_income_account', 'cost_center'])
-            sunday_count= self.get_sunday_count(period.start_date, period.end_date, period)
+            sunday_count= self.get_sunday_count(period.start_date, period.end_date, period.name)
             for row in att_data:
                 rate, wage_rule_details= self.get_price(row.wage_rule, row.wage_rule_details, period.start_date, period.end_date)
-                contract_doc= frappe.get_doc('Site Contract', row.contract) 
+                contract_doc= frappe.get_doc('Site Contract', row.contract)
                 if rate == 0.0:
                     frappe.throw(_("WageRule: {0} not valid for Contract : {1} | WT : {2}.").format(row.wage_rule,row.contract,row.work_type))
                 else:
@@ -1229,7 +1240,7 @@ class SalesInvoice(SellingController):
                                             'item_name': row.work_type,
                                             'description': row.work_type,
                                             'uom': 'Nos',
-                                            'qty': row.total_bill_duty + sunday_count if contract_doc.is_relieving_charges_includes and row.work_type == 'GD1' else row.total_bill_duty, 
+                                            'qty': self.get_total_qty(row.total_bill_duty, sunday_count, contract_doc, row.work_type), 
                                             'contract': row.contract,
                                             'site': row.site,
                                             'attendance': row.name,
@@ -1722,6 +1733,17 @@ def get_sunday_count(start_date, end_date, period):
     sunday_count, sunday_count_details= get_wo_count(start_date, end_date, 'Sunday', None, period_doc)
     return sunday_count
 
+def get_total_qty(total_bill_duty, sunday_count, contract, work_type):
+    bill_duty= total_bill_duty
+    total_qty= 0
+    if contract.is_relieving_charges_includes:
+        for row in contract.contract_details:
+            if row.work_type in ["GD1", "GMW"] and work_type in ["GD1", "GMW"]:
+                total_qty= bill_duty + (sunday_count * row.quantity)
+            else: total_qty= bill_duty
+    else: total_qty= bill_duty
+    return total_qty
+
 def attendance_wise_invoicing(customer, billing_period, pointer):
     #address= get_customer_address(customer.name) # address display pending
     att_data= get_customer_attendances(billing_period, customer.name)
@@ -1746,7 +1768,7 @@ def attendance_wise_invoicing(customer, billing_period, pointer):
             contract_doc= frappe.get_doc('Site Contract', data["contract"])
             si_doc.append('items', {"item_code": data["work_type"],
                                     "item_name": data["work_type"],
-                                    "qty":  data["total_bill_duty"] + sunday_count if contract_doc.is_relieving_charges_includes and data["work_type"] == 'GD1' else data["total_bill_duty"],
+                                    "qty":  get_total_qty( data["total_bill_duty"], sunday_count, contract_doc, data["work_type"]),
                                     "uom": "Nos",
                                     "price_list_rate":rate,
                                     "rate": rate,
@@ -1801,7 +1823,7 @@ def customer_or_state_wise_invoicing(customer, billing_period, pointer):
         contract_doc= frappe.get_doc('Site Contract', data["contract"])
         si_doc.append('items', {"item_code": data["work_type"],
                                     "item_name": data["work_type"],
-                                    "qty": data["total_bill_duty"] + sunday_count if contract_doc.is_relieving_charges_includes and data["work_type"] == 'GD1' else data["total_bill_duty"],
+                                    "qty": get_total_qty( data["total_bill_duty"], sunday_count, contract_doc, data["work_type"]),
                                     "uom": "Nos",
                                     "price_list_rate":rate,
                                     "rate": rate,
