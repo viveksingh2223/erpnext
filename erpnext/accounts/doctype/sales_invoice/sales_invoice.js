@@ -343,7 +343,6 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
                                     frappe.model.set_value(si_item.doctype, si_item.name, 'item_code', sirow.item_code); //set row Item
                                     frappe.model.set_value(si_item.doctype, si_item.name, 'contract', sirow.contract); //set ref Contract
 
-
                                     frappe.model.set_value(si_item.doctype, si_item.name, 'salary_structure', sirow.salary_structure); // Salary structure
                                     frappe.model.set_value(si_item.doctype, si_item.name, 'ss_revision_name', sirow.ss_revision_name); // Revision Name
                                     frappe.model.set_value(si_item.doctype, si_item.name, 'ss_revision_no', sirow.ss_revision_no); // Revision No
@@ -367,42 +366,18 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
             })
         }
     },
-	get_rate_revision_btn: function() {
+	get_rate_revision_btn: function(frm) {
         var me = this;
         if(me.frm.doc.arrears_bill_from && me.frm.doc.customer){
             frappe.model.clear_table(me.frm.doc, "items");
             me.frm.refresh_field("items");
             frappe.call({
-                "method": "erpnext.accounts.doctype.sales_invoice.sales_invoice.get_data_to_make_arrears_bill",
-                "args": {
-                    "doctype": "Sales Invoice",
-                    "arrears_bill_from": this.frm.doc.arrears_bill_from,
-                    "customer": this.frm.doc.customer
-                },
+                method: "get_data_to_make_arrears_bill",
+                doc: cur_frm.doc,
                 callback: function(r) {
                     if(r.message) {
-                        Object.keys(r.message).forEach((name, i) => {
-                            console.log("##### QQQ #####",r.message[name].length)
-                            for(var j=0; j< r.message[name].length; j++){
-                                var si_item = frappe.model.add_child(me.frm.doc, 'Sales Invoice Item', 'items');
-                                frappe.model.set_value(si_item.doctype, si_item.name, 'rate', flt(r.message[name][j].rate)); //set row Rate
-                                frappe.model.set_value(si_item.doctype, si_item.name, 'qty', flt(r.message[name][j].qty)); //set row QTY
-                                frappe.model.set_value(si_item.doctype, si_item.name, 'price_list_rate', flt(r.message[name][j].rate)); //set row Price List Rate
-                                frappe.model.set_value(si_item.doctype, si_item.name, 'item_code', r.message[name][j].item_code); //set row QTY
-
-                                frappe.model.set_value(si_item.doctype, si_item.name, 'contract', r.message[name][j].contract); // Customer Contract linked
-                                frappe.model.set_value(si_item.doctype, si_item.name, 'salary_structure', r.message[name][j].salary_structure); // Salary structure
-                                frappe.model.set_value(si_item.doctype, si_item.name, 'ss_revision_name', r.message[name][j].ss_revision_name); // Revision Name
-                                frappe.model.set_value(si_item.doctype, si_item.name, 'ss_revision_no', r.message[name][j].ss_revision_no); // Revision No
-                                frappe.model.set_value(si_item.doctype, si_item.name, 'ss_revision_rate', r.message[name][j].ss_revision_rate); // Rate Based on Revision
-
-                                frappe.model.set_value(si_item.doctype, si_item.name, 'item_from_date', r.message[name][j].item_from_date); // Billing Period Start Date
-                                frappe.model.set_value(si_item.doctype, si_item.name, 'item_to_date', r.message[name][j].item_to_date); // Billing Period End Date
-
-                                frappe.model.set_value(si_item.doctype, si_item.name, 'ref_sales_invoice', r.message[name][j].ref_sales_invoice); //prev sales Invoice
-                                frappe.model.set_value(si_item.doctype, si_item.name, 'ref_invoice_rate', r.message[name][j].ref_invoice_rate); //prev sales Invoice
-                            }
-                        });
+                        cur_frm.save()
+                        cur_frm.refresh()
                     }
                 }
             });

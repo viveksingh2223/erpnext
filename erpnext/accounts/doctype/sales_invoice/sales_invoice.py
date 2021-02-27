@@ -196,9 +196,42 @@ class SalesInvoice(SellingController):
         self.update_status_updater_args()
         self.update_prevdoc_status()
         self.update_billing_status_in_dn()
-        self.update_attendance("Completed", )
         self.clear_unallocated_mode_of_payments()
-
+        ################# YTPL CODE END ################################################### 
+        ### YTPL CODE Check Bill Duty Of people attendance and billing quantity ##
+        update_modified=True
+        if self.billing_type == "Standard":
+            contract_wise_total_bill_quantity= frappe.db.sql("""select sii.contract, sum(sii.qty) as total_bill_duty from `tabSales Invoice` si 
+                                                                inner join `tabSales Invoice Item` sii on si.name= sii.parent 
+                                                                where si.name= '%s' group by sii.contract;"""%(self.name), as_dict= True)
+            for contract in contract_wise_total_bill_quantity: 
+                attendance= frappe.db.sql("""select pa.name, sum(atd.bill_duty) as total_bill_duty from `tabPeople Attendance` pa 
+                                            inner join `tabAttendance Details` atd on pa.name= atd.parent 
+                                            where pa.contract= '%s' and pa.attendance_period= '%s'"""%(contract.contract, self.billing_period), as_dict= True)
+                if len(attendance) > 0:
+                    if attendance[0]["total_bill_duty"] > contract.total_bill_duty:
+                        frappe.db.set_value("People Attendance", contract.attendance, "status", 'Partially Completed', update_modified=update_modified)
+                    else:
+                        frappe.db.set_value("People Attendance", contract.attendance, "status", 'Completed', update_modified=update_modified)
+        elif self.billing_type == "Attendance":
+            attendance_wise_total_bill_quantity= frappe.db.sql("""select sii.attendance as attendance, sum(sii.qty) as total_bill_duty from `tabSales Invoice` si 
+                                                                    inner join `tabSales Invoice Item` sii on si.name= sii.parent 
+                                                                    where si.name= '%s' group by sii.attendance;"""%(self.name), as_dict= True)
+            for attendance in attendance_wise_total_bill_quantity:
+                people_attendance= frappe.db.sql("""select pa.name, sum(atd.bill_duty) as total_bill_duty from `tabPeople Attendance` pa 
+                                            inner join `tabAttendance Details` atd on pa.name= atd.parent 
+                                            where pa.name= '%s'"""%(attendance.attendance), as_dict= True)
+                if len(people_attendance) > 0:
+                    print(people_attendance[0]["total_bill_duty"], attendance.total_bill_duty)
+                    if people_attendance[0]["total_bill_duty"] > attendance.total_bill_duty:
+                        frappe.db.set_value("People Attendance", attendance.attendance, "status", 'Partially Completed', update_modified=update_modified)
+                    else:
+                        frappe.db.set_value("People Attendance", attendance.attendance, "status", 'Completed', update_modified=update_modified)
+        elif self.billing_type == "Supplementry":
+            self.update_attendance('Completed')
+        else:
+            pass 
+        ################# YTPL CODE END ################################################### 
         # Updating stock ledger should always be called after updating prevdoc status,
         # because updating reserved qty in bin depends upon updated delivered qty in SO
         if self.update_stock == 1:
@@ -245,6 +278,10 @@ class SalesInvoice(SellingController):
             for items in self.items:
                 if items.attendance and items.site:
                     frappe.db.set_value("People Attendance", items.attendance, "status", status, update_modified=update_modified)
+                if self.billing_period == 'Standard' and items.contract and items.site:
+                    attendance= frappe.db.sql("""select name from `tabPeople Attendance` where contract= '%s' and attendance_period= '%s'"""%(items.contract, self.billing_period), as_dict= True)
+                    if len(attendance) > 0:
+                        frappe.db.set_value("People Attendance", attendance[0]['name'], "status", status, update_modified=update_modified)
 
     def on_cancel(self):
         self.check_close_sales_order("sales_order")
@@ -1326,6 +1363,106 @@ class SalesInvoice(SellingController):
             frappe.throw("No Data Found For Selected Contract")
         return "Item Inserted Successfully"
 
+    def rate_revision_si(self, ref_si,item_code, frm_dt,to_dt):
+        filters = [['docstatus', '=', 1], ['ref_sales_invoice', '=', ref_si], ['item_code', '=', item_code], ['item_from_date', '=', frm_dt], ['item_to_date', '=', to_dt]]
+        rr_si_list = frappe.get_list("Sales Invoice Item", fields=['*'], filters=filters,ignore_permissions=1)
+        rate=0.00
+        if rr_si_list:
+            for rr_item in rr_si_list:
+                rate= round(rate,2) + round(rr_item.rate,2)
+        return rate
+
+    def get_wage_rule_details(self, docname, period_from_date, period_to_date):
+        period_total_days = cint(date_diff(period_to_date, period_from_date) + 1)
+        count = wr_revision= wr_rate= 0
+        wr_name=None
+        if not (period_total_days and period_total_days > 0):
+            frappe.throw(_("Billing Period Days Should be Greater Than Zero"))
+        sal_struct = frappe.get_doc('Wage Structure', docname)
+        if sal_struct:
+            if(sal_struct.docstatus == 1 and sal_struct.is_active == "Yes"):
+                if sal_struct.wage_rule_details:
+                    for wr in sal_struct.wage_rule_details:
+                        wage_rv_frmdt = getdate(wr.from_date)  # Wage Rule Details Revision Fron Date
+                        wage_rv_todt = getdate(wr.to_date)  # Wage Rule Details Revision To Date
+                        period_start_dt = getdate(period_from_date)  # Attendance Period Start Date
+                        period_end_dt = getdate(period_to_date)  # Attendance Period End Date
+                        if (wage_rv_frmdt <= period_start_dt and wage_rv_todt >= period_end_dt):
+                            count = count + 1
+                            if count > 1:
+                                frappe.throw(_("Rule Code : '{0}', Multiple Wage Rule Revisions found between '{1} - {2}' ").format(sal_struct.rule_code, period_start_dt, period_end_dt))
+                            if count == 1:
+                                wr_name=wr.name
+                                wr_revision=wr.revision
+                                days_in_month = cint(formatdate(get_last_day(period_from_date), "dd"))
+                                if str(wr.rate_per).upper() == 'MONTH':
+                                    wr_rate = wr.rate / days_in_month
+                                elif str(wr.rate_per).upper() == 'DUTY':
+                                    wr_rate = wr.rate
+                                else:wr_rate = 0.00
+                            pass
+                        pass
+                    pass
+                if count == 0: frappe.throw(_("Wage Structure : '{0}'. revision not found between '{1} - {2}' ").format(sal_struct.rule_code,period_start_dt, period_end_dt))
+            else : frappe.throw(_("Wage Rule Revision Not found in Wage Structure: {0}").format(sal_struct.rule_code))
+        else : frappe.throw(_("Wage Structure: {0} should be Active").format(sal_struct.rule_code))
+        print({"wr_rate": round(wr_rate,2), "wr_name": wr_name, "wr_revision": wr_revision})
+        return {"wr_rate": round(wr_rate,2), "wr_name": wr_name, "wr_revision": wr_revision}
+
+    
+    def get_data_to_make_arrears_bill(self):
+        if self.arrears_bill_from and self.customer:
+            filters = [['docstatus', '=', 1],['is_return', '=', 0],['billing_type', 'in', ['Standard', 'Attendance', 'Supplementary']],['si_from_date', '>=', self.arrears_bill_from],['customer', '=', self.customer]]
+            si_list = frappe.get_list('Sales Invoice', fields=['*'], filters=filters)
+            si_items_row= {}
+            if si_list:
+                for prev_bill in si_list:
+                    prev_si = frappe.get_doc('Sales Invoice', prev_bill.name)
+                    for prev_si_items in prev_si.items:
+                        diff_rate = curr_rate = 0.00
+                        if prev_si_items.salary_structure:
+                            new_details= self.get_wage_rule_details(prev_si_items.salary_structure, prev_si_items.item_from_date, prev_si_items.item_to_date)
+                            rr_rate= self.rate_revision_si(prev_bill.name, prev_si_items.item_code, prev_si_items.item_from_date, prev_si_items.item_to_date)
+                            curr_rate = round(new_details['wr_rate'],2)
+                            base_rate = round(prev_si_items.rate, 2)
+
+                            diff_rate = round(round(curr_rate, 2) - round(base_rate, 2), 2) - round(rr_rate, 2)
+                            if(diff_rate > 0.0):
+                                prev_si_items.ss_revision_name = new_details['wr_name'];
+                                prev_si_items.ss_revision_no = new_details['wr_revision'];
+                                prev_si_items.ss_revision_rate = round(curr_rate,2);
+                                prev_si_items.rate = round(diff_rate,2)
+
+                                if si_items_row.has_key(prev_bill.name): si_items_row[prev_bill.name].append(prev_si_items)
+                                else: si_items_row[prev_bill.name] = [prev_si_items]
+                                self.append('items',{   'rate': round(diff_rate,2),
+                                                        'price_list_rate': round(diff_rate,2) , 
+                                                        'item_code': prev_si_items.item_code,
+                                                        'item_name': prev_si_items.item_code,
+                                                        'description': prev_si_items.item_code,
+                                                        'uom': 'Nos',
+                                                        'qty': prev_si_items.qty,
+                                                        'contract': prev_si_items.contract,
+                                                        'site': prev_si_items.site,
+                                                        'attendance': prev_si_items.attendance,
+                                                        'salary_structure': prev_si_items.salary_structure,
+                                                        'ss_revision_name': new_details['wr_name'],
+                                                        'ss_revision_rate': round(curr_rate,2),
+                                                        'item_from_date': prev_si_items.item_from_date ,
+                                                        'item_to_date':  prev_si_items.item_to_date ,
+                                                        'income_account': prev_si_items.income_account,
+                                                        'cost_center': prev_si_items.cost_center,
+                                                        'ref_sales_invoice': prev_bill.name,
+                                                        'ref_invoice_rate': prev_si_items.rate
+                                                        }
+                                                        ) 
+
+                        else: frappe.throw(_("Wage Structure not linked."))
+                    pass
+            if not si_items_row : frappe.msgprint(_("Rate Diffrence Not Found"))
+        else: frappe.throw(_("Bill not generated after '{0}' for Customer : {1}").format(self.arrears_bill_from, self.customer))
+        return "Item Fetched"
+
 def booked_deferred_revenue():
     # check for the sales invoice for which GL entries has to be done
     invoices = frappe.db.sql_list('''
@@ -1558,99 +1695,6 @@ def get_loyalty_programs(customer):
         return lp_details
 
 ################################ Custom YTPL ############################
-@frappe.whitelist()
-def get_data_to_make_arrears_bill(doctype, arrears_bill_from=None, customer=None):
-    if arrears_bill_from and customer:
-        filters = [['docstatus', '=', 1],['is_return', '=', 0],['billing_type', 'in', ['Standard', 'Attendance', 'Supplementary']],['si_from_date', '>=', arrears_bill_from],['customer', '=', customer]]
-        si_list = frappe.get_list(doctype, fields=['*'], filters=filters)
-        si_items_row={}
-        if si_list:
-            for prev_bill in si_list:
-                prev_si = frappe.get_doc('Sales Invoice', prev_bill.name)
-                for prev_si_items in prev_si.items:
-                    diff_rate = curr_rate = 0.00
-                    if prev_si_items.salary_structure:
-                        new_details= get_wage_rule_details(prev_si_items.salary_structure, prev_si_items.item_from_date, prev_si_items.item_to_date)
-
-                        rr_rate=rate_revision_si(prev_bill.name, prev_si_items.item_code, prev_si_items.item_from_date, prev_si_items.item_to_date)
-
-                        curr_rate = round(new_details['wr_rate'],2)
-                        base_rate = round(prev_si_items.rate, 2)
-
-                        diff_rate = round(round(curr_rate, 2) - round(base_rate, 2), 2) - round(rr_rate, 2)
-
-                        if(diff_rate > 0):
-                            prev_si_items.ss_revision_name = new_details['wr_name'];
-                            prev_si_items.ss_revision_no = new_details['wr_revision'];
-                            prev_si_items.ss_revision_rate = round(curr_rate,2);
-                            prev_si_items.ref_sales_invoice = prev_bill.name;
-                            prev_si_items.ref_invoice_rate = prev_si_items.rate
-                            prev_si_items.rate = round(diff_rate,2)
-
-                            if si_items_row.has_key(prev_bill.name): si_items_row[prev_bill.name].append(prev_si_items)
-                            else: si_items_row[prev_bill.name] = [prev_si_items]
-
-                    else: frappe.throw(_("Wage Structure not linked."))
-                pass
-            if not si_items_row : frappe.msgprint(_("Rate Diffrence Not Found"))
-        else: frappe.throw(_("Bill not generated after '{0}' for Customer : {1}").format(arrears_bill_from,customer))
-        return si_items_row
-
-@frappe.whitelist()
-def rate_revision_si(ref_si,item_code,frm_dt,to_dt):
-    filters = [['docstatus', '=', 1], ['ref_sales_invoice', '=', ref_si],['item_code', '=', item_code], ['item_from_date', '=', frm_dt],['item_to_date', '=', to_dt]]
-    rr_si_list = frappe.get_list("Sales Invoice Item", fields=['*'], filters=filters,ignore_permissions=1)
-    rate=0.00
-    if rr_si_list:
-        for rr_item in rr_si_list:
-            rate= round(rate,2) + round(rr_item.rate,2)
-    return rate
-
-@frappe.whitelist()
-def get_wage_rule_details(docname, period_from_date, period_to_date):
-    period_total_days = cint(date_diff(period_to_date, period_from_date) + 1)
-    if not (period_total_days and period_total_days > 0):
-        frappe.throw(_("Billing Period Days Should be Greater Than Zero"))
-    sal_struct = frappe.get_doc('Wage Structure', docname)
-    if sal_struct:
-        if(sal_struct.docstatus == 1 and sal_struct.is_active == "Yes"):
-            if sal_struct.wage_rule_details:
-                count = wr_revision= wr_rate= 0
-                we_name=None
-                for wr in sal_struct.wage_rule_details:
-                    wage_rv_frmdt = getdate(wr.from_date)  # Wage Rule Details Revision Fron Date
-                    wage_rv_todt = getdate(wr.to_date)  # Wage Rule Details Revision To Date
-                    period_start_dt = getdate(period_from_date)  # Attendance Period Start Date
-                    period_end_dt = getdate(period_to_date)  # Attendance Period End Date
-
-                    if (wage_rv_frmdt <= period_start_dt and wage_rv_todt >= period_end_dt):
-                        count = count + 1
-                        if count > 1:
-                            frappe.throw(_("Rule Code : '{0}', Multiple Wage Rule Revisions found between '{1} - {2}' ").format(sal_struct.rule_code, period_start_dt, period_end_dt))
-                        if count == 1:
-                            wr_name=wr.name
-                            wr_revision=wr.revision
-                            days_in_month = cint(formatdate(get_last_day(period_from_date), "dd"))
-                            if str(wr.rate_per).upper() == 'MONTH':
-                                wr_rate = wr.rate / days_in_month
-                                #wr_rate = wr.rate / period_total_days;
-                            elif str(wr.rate_per).upper() == 'DUTY':
-                                wr_rate = wr.rate
-                                #if wr.total_wage_days and wr.total_wage_days > 0:
-                                    #wr_rate= wr.rate / wr.total_wage_days;
-                                #else: frappe.throw(_("Total Wage Days Should be Greater Than Zero"))
-                            else:wr_rate = 0.00
-                            pass
-                        pass
-                    pass
-                if count == 0: frappe.throw(_("Wage Structure : '{0}'. revision not found between '{1} - {2}' ").format(sal_struct.rule_code,period_start_dt, period_end_dt))
-            else : frappe.throw(_("Wage Rule Revision Not found in Wage Structure: {0}").format(sal_struct.rule_code))
-        else : frappe.throw(_("Wage Structure: {0} should be Active").format(sal_struct.rule_code))
-    return {
-        "wr_rate": round(wr_rate,2),
-        "wr_name": wr_name,
-        "wr_revision": wr_revision
-    }
 ################# YTPL Code Start ###########################
 @frappe.whitelist()
 def auto_invoice_creation(billing_period):
