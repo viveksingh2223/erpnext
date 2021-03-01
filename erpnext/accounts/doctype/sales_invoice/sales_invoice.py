@@ -205,14 +205,12 @@ class SalesInvoice(SellingController):
                                                                 inner join `tabSales Invoice Item` sii on si.name= sii.parent 
                                                                 where si.name= '%s' group by sii.contract;"""%(self.name), as_dict= True)
             for contract in contract_wise_total_bill_quantity: 
-                attendance= frappe.db.sql("""select pa.name, sum(atd.bill_duty) as total_bill_duty from `tabPeople Attendance` pa 
-                                            inner join `tabAttendance Details` atd on pa.name= atd.parent 
-                                            where pa.contract= '%s' and pa.attendance_period= '%s'"""%(contract.contract, self.billing_period), as_dict= True)
+                attendance= frappe.db.sql("""select pa.name, sum(atd.bill_duty) as total_bill_duty from `tabPeople Attendance` pa inner join `tabAttendance Details` atd on pa.name= atd.parent where pa.contract= '%s' and pa.attendance_period= '%s'"""%(contract.contract, self.billing_period), as_dict= True)
                 if len(attendance) > 0:
                     if attendance[0]["total_bill_duty"] > contract.total_bill_duty:
-                        frappe.db.set_value("People Attendance", contract.attendance, "status", 'Partially Completed', update_modified=update_modified)
+                        frappe.db.set_value("People Attendance", attendance[0]["name"], "status", 'Partially Completed', update_modified=update_modified)
                     else:
-                        frappe.db.set_value("People Attendance", contract.attendance, "status", 'Completed', update_modified=update_modified)
+                        frappe.db.set_value("People Attendance", attendance[0]["name"], "status", 'Completed', update_modified=update_modified)
         elif self.billing_type == "Attendance":
             attendance_wise_total_bill_quantity= frappe.db.sql("""select sii.attendance as attendance, sum(sii.qty) as total_bill_duty from `tabSales Invoice` si 
                                                                     inner join `tabSales Invoice Item` sii on si.name= sii.parent 
@@ -298,7 +296,17 @@ class SalesInvoice(SellingController):
         self.update_prevdoc_status()
         self.update_billing_status_in_dn()
         self.update_attendance("To Bill")
-
+        update_modified=True
+        if self.billing_type == "Standard":
+            contract_wise_total_bill_quantity= frappe.db.sql("""select sii.contract, sum(sii.qty) as total_bill_duty from `tabSales Invoice` si 
+                                                                inner join `tabSales Invoice Item` sii on si.name= sii.parent 
+                                                                where si.name= '%s' group by sii.contract;"""%(self.name), as_dict= True)
+            for contract in contract_wise_total_bill_quantity:
+                attendance= frappe.db.sql("""select pa.name, sum(atd.bill_duty) as total_bill_duty from `tabPeople Attendance` pa inner join `tabAttendance Details` atd on pa.name= atd.parent where pa.contract= '%s' and pa.attendance_period= '%s'"""%(contract.contract, self.billing_period), as_dict= True)
+                if len(attendance) > 0:
+                    frappe.db.set_value("People Attendance", attendance[0]["name"], "status", 'To Bill', update_modified=update_modified)
+        else:
+            self.update_attendance("To Bill")
         if not self.is_return:
             self.update_billing_status_for_zero_amount_refdoc("Sales Order")
             self.update_serial_no(in_cancel=True)
