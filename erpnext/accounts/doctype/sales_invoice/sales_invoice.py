@@ -86,7 +86,6 @@ class SalesInvoice(SellingController):
     def validate(self):
         super(SalesInvoice, self).validate()
         self.validate_auto_set_posting_time()
-
         ################################ Custom YTPL ############################
 
         aleady_exist = None
@@ -270,7 +269,16 @@ class SalesInvoice(SellingController):
 
     def before_cancel(self):
         self.update_time_sheet(None)
-
+        self.check_payroll_entry() 
+    ####### YTPL CODE STRAT##################
+    def check_payroll_entry(self):
+        sales_invoice_contract_list= frappe.db.sql("""select name, payroll_process from `tabProcessed Payroll` 
+                                                        where contract in(select distinct sii.contract from `tabSales Invoice` si 
+                                                        inner join `tabSales Invoice Item` sii on si.name= sii.parent where si.name= '%s') 
+                                                        and period= '%s';"""%(self.name, self.billing_period))
+        if len(sales_invoice_contract_list) > 0:
+            frappe.throw("Payroll Process Has Been Complete For Selected Bill, Bill Can Not Be Cancel Or Delete")
+    ######## YTPL CODE END ##################
     def update_attendance(self, status, update_modified=True):
         if self.items:
             for items in self.items:
@@ -1863,7 +1871,7 @@ def customer_or_state_wise_invoicing(customer, billing_period, pointer):
     si_doc.si_from_date= att_data[0]["start_date"]
     si_doc.si_to_date= att_data[0]["end_date"]
     #si_doc.customer_name= customer.customer_code
-    bill_data= frappe.db.sql("""select atd.work_type, sum(atd.bill_duty), atd.wage_rule, att.include_relieving_charges,
+    bill_data= frappe.db.sql("""select atd.work_type, sum(atd.bill_duty) as total_bill_duty, atd.wage_rule, att.include_relieving_charges,
                             atd.wage_rule_details, att.contract, att.site, att.site_name, att.name, att.weekly_off_included
                             from `tabPeople Attendance` att 
                             inner join `tabAttendance Details` atd on atd.parent= att.name
