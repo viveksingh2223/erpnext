@@ -1846,14 +1846,34 @@ def attendance_wise_invoicing(customer, billing_period, pointer):
                         )
             address= get_customer_address(data["site"]) if get_customer_address(data["site"]) is not None else get_customer_address(customer.customer_code)# address display pending
         if address and address.gst_state != None:
-            si_doc.taxes_and_charges= "Out of State GST - SPS" if str(address.gst_state).strip().upper() != "MAHARASHTRA" else "In State GST - SPS"
-            if si_doc.taxes_and_charges == "In State GST - SPS":
-                si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "SGST - SPS", "description": "SGST @ 9.0", "rate": 9.00})
-                si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "CGST - SPS", "description": "CGST @ 9.0", "rate": 9.00})
-            elif si_doc.taxes_and_charges == "Out of State GST - SPS":
-                si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "IGST - SPS", "description": "IGST @ 18.0", "rate": 18.00})
-            else : pass
-            calculate_taxes_and_totals(si_doc)
+            if self.company == 'Security & Personnel Services Pvt. Ltd.':
+                si_doc.taxes_and_charges= "Out of State GST - SPS" if str(address.gst_state).strip().upper() != "MAHARASHTRA" else "In State GST - SPS"
+                if si_doc.taxes_and_charges == "In State GST - SPS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "SGST - SPS", "description": "SGST @ 9.0", "rate": 9.00})
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "CGST - SPS", "description": "CGST @ 9.0", "rate": 9.00})
+                elif si_doc.taxes_and_charges == "Out of State GST - SPS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "IGST - SPS", "description": "IGST @ 18.0", "rate": 18.00})
+                else : pass
+                calculate_taxes_and_totals(si_doc)
+            elif self.company == 'Metro Facility Services':
+                si_doc.taxes_and_charges= "Out of State GST - MFS" if str(address.gst_state).strip().upper() != "MAHARASHTRA" else "In State GST - MFS"
+                if si_doc.taxes_and_charges == "In State GST - MFS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "SGST - MFS", "description": "SGST @ 9.0", "rate": 9.00})
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "CGST - MFS", "description": "CGST @ 9.0", "rate": 9.00})
+                elif si_doc.taxes_and_charges == "Out of State GST - MFS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "IGST - MFS", "description": "IGST @ 18.0", "rate": 18.00})
+                else: pass
+                calculate_taxes_and_totals(si_doc)
+            elif self.company == 'Falcon Facility Services':
+                si_doc.taxes_and_charges= "Out of State GST - FFS" if str(address.gst_state).strip().upper() != "MAHARASHTRA" else "In State GST - FFS"
+                if si_doc.taxes_and_charges == "In State GST - FFS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "SGST - FFS", "description": "SGST @ 9.0", "rate": 9.00})
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "CGST - FFS", "description": "CGST @ 9.0", "rate": 9.00})
+                elif si_doc.taxes_and_charges == "Out of State GST - FFS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "IGST - FFS", "description": "IGST @ 18.0", "rate": 18.00})
+                else: pass
+                calculate_taxes_and_totals(si_doc)
+            else: pass
         else: pass
         my_pointer= my_pointer + 1
         si_doc.save()
@@ -1900,14 +1920,33 @@ def customer_or_state_wise_invoicing(customer, billing_period, pointer):
                                     }
                     )
     if address and address.gst_state != None:
-        si_doc.taxes_and_charges= "Out of State GST - SPS" if str(address.gst_state).strip().upper() != "MAHARASHTRA" else "In State GST - SPS"
-        if si_doc.taxes_and_charges == "In State GST - SPS":
-            si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "SGST - SPS", "description": "SGST @ 9.0", "rate": 9.00})
-            si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "CGST - SPS", "description": "CGST @ 9.0", "rate": 9.00})
-        elif si_doc.taxes_and_charges == "Out of State GST - SPS":
-            si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "IGST - SPS", "description": "IGST @ 18.0", "rate": 18.00})
-        else : pass
-        calculate_taxes_and_totals(si_doc)
+        if self.company == 'Security & Personnel Services Pvt. Ltd.':
+                si_doc.taxes_and_charges= "Out of State GST - SPS" if str(address.gst_state).strip().upper() != "MAHARASHTRA" else "In State GST - SPS"
+                if si_doc.taxes_and_charges == "In State GST - SPS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "SGST - SPS", "description": "SGST @ 9.0", "rate": 9.00})
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "CGST - SPS", "description": "CGST @ 9.0", "rate": 9.00})
+                elif si_doc.taxes_and_charges == "Out of State GST - SPS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "IGST - SPS", "description": "IGST @ 18.0", "rate": 18.00})
+                else : pass
+                calculate_taxes_and_totals(si_doc)
+            elif self.company == 'Metro Facility Services':
+                si_doc.taxes_and_charges= "Out of State GST - MFS" if str(address.gst_state).strip().upper() != "MAHARASHTRA" else "In State GST - MFS"
+                if si_doc.taxes_and_charges == "In State GST - MFS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "SGST - MFS", "description": "SGST @ 9.0", "rate": 9.00})
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "CGST - MFS", "description": "CGST @ 9.0", "rate": 9.00})
+                elif si_doc.taxes_and_charges == "Out of State GST - MFS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "IGST - MFS", "description": "IGST @ 18.0", "rate": 18.00})
+                else: pass
+                calculate_taxes_and_totals(si_doc)
+            elif self.company == 'Falcon Facility Services':
+                si_doc.taxes_and_charges= "Out of State GST - FFS" if str(address.gst_state).strip().upper() != "MAHARASHTRA" else "In State GST - FFS"
+                if si_doc.taxes_and_charges == "In State GST - FFS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "SGST - FFS", "description": "SGST @ 9.0", "rate": 9.00})
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "CGST - FFS", "description": "CGST @ 9.0", "rate": 9.00})
+                elif si_doc.taxes_and_charges == "Out of State GST - FFS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "IGST - FFS", "description": "IGST @ 18.0", "rate": 18.00})
+                else: pass
+                calculate_taxes_and_totals(si_doc)
     else: pass
     si_doc.save()
     return pointer + 1
@@ -1966,6 +2005,7 @@ def standard_invoicing(customer, billing_period, pointer):
                 #address= get_customer_address(data["site"]) # address display pending
                 address= get_customer_address(data["site"]) if get_customer_address(data["site"]) is not None else get_customer_address(customer.customer_code)# address display pending
             if address and address.gst_state != None:
+                if self.company == 'Security & Personnel Services Pvt. Ltd.':
                 si_doc.taxes_and_charges= "Out of State GST - SPS" if str(address.gst_state).strip().upper() != "MAHARASHTRA" else "In State GST - SPS"
                 if si_doc.taxes_and_charges == "In State GST - SPS":
                     si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "SGST - SPS", "description": "SGST @ 9.0", "rate": 9.00})
@@ -1973,6 +2013,25 @@ def standard_invoicing(customer, billing_period, pointer):
                 elif si_doc.taxes_and_charges == "Out of State GST - SPS":
                     si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "IGST - SPS", "description": "IGST @ 18.0", "rate": 18.00})
                 else : pass
+               
+            elif self.company == 'Metro Facility Services':
+                si_doc.taxes_and_charges= "Out of State GST - MFS" if str(address.gst_state).strip().upper() != "MAHARASHTRA" else "In State GST - MFS"
+                if si_doc.taxes_and_charges == "In State GST - MFS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "SGST - MFS", "description": "SGST @ 9.0", "rate": 9.00})
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "CGST - MFS", "description": "CGST @ 9.0", "rate": 9.00})
+                elif si_doc.taxes_and_charges == "Out of State GST - MFS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "IGST - MFS", "description": "IGST @ 18.0", "rate": 18.00})
+                else: pass
+               
+            elif self.company == 'Falcon Facility Services':
+                si_doc.taxes_and_charges= "Out of State GST - FFS" if str(address.gst_state).strip().upper() != "MAHARASHTRA" else "In State GST - FFS"
+                if si_doc.taxes_and_charges == "In State GST - FFS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "SGST - FFS", "description": "SGST @ 9.0", "rate": 9.00})
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "CGST - FFS", "description": "CGST @ 9.0", "rate": 9.00})
+                elif si_doc.taxes_and_charges == "Out of State GST - FFS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "IGST - FFS", "description": "IGST @ 18.0", "rate": 18.00})
+                else: pass
+               
             else: pass
             my_pointer += 1
             calculate_taxes_and_totals(si_doc)
@@ -2025,14 +2084,33 @@ def po_wise_billing(customer, billing_period, pointer):
             )
     address= get_customer_address(customer.customer_code)# address display pending
     if address and address.gst_state != None:
-        si_doc.taxes_and_charges= "Out of State GST - SPS" if str(address.gst_state).strip().upper() != "MAHARASHTRA" else "In State GST - SPS"
-        if si_doc.taxes_and_charges == "In State GST - SPS":
-            si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "SGST - SPS", "description": "SGST @ 9.0", "rate": 9.00})
-            si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "CGST - SPS", "description": "CGST @ 9.0", "rate": 9.00})
-        elif si_doc.taxes_and_charges == "Out of State GST - SPS":
-            si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "IGST - SPS", "description": "IGST @ 18.0", "rate": 18.00})
-        else : pass
-        calculate_taxes_and_totals(si_doc)
+        if self.company == 'Security & Personnel Services Pvt. Ltd.':
+                si_doc.taxes_and_charges= "Out of State GST - SPS" if str(address.gst_state).strip().upper() != "MAHARASHTRA" else "In State GST - SPS"
+                if si_doc.taxes_and_charges == "In State GST - SPS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "SGST - SPS", "description": "SGST @ 9.0", "rate": 9.00})
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "CGST - SPS", "description": "CGST @ 9.0", "rate": 9.00})
+                elif si_doc.taxes_and_charges == "Out of State GST - SPS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "IGST - SPS", "description": "IGST @ 18.0", "rate": 18.00})
+                else : pass
+                
+            elif self.company == 'Metro Facility Services':
+                si_doc.taxes_and_charges= "Out of State GST - MFS" if str(address.gst_state).strip().upper() != "MAHARASHTRA" else "In State GST - MFS"
+                if si_doc.taxes_and_charges == "In State GST - MFS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "SGST - MFS", "description": "SGST @ 9.0", "rate": 9.00})
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "CGST - MFS", "description": "CGST @ 9.0", "rate": 9.00})
+                elif si_doc.taxes_and_charges == "Out of State GST - MFS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "IGST - MFS", "description": "IGST @ 18.0", "rate": 18.00})
+                else: pass
+                
+            elif self.company == 'Falcon Facility Services':
+                si_doc.taxes_and_charges= "Out of State GST - FFS" if str(address.gst_state).strip().upper() != "MAHARASHTRA" else "In State GST - FFS"
+                if si_doc.taxes_and_charges == "In State GST - FFS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "SGST - FFS", "description": "SGST @ 9.0", "rate": 9.00})
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "CGST - FFS", "description": "CGST @ 9.0", "rate": 9.00})
+                elif si_doc.taxes_and_charges == "Out of State GST - FFS":
+                    si_doc.append('taxes', {"charge_type": "On Net Total", "account_head": "IGST - FFS", "description": "IGST @ 18.0", "rate": 18.00})
+                else: pass
+                
     else: pass
     my_pointer += 1
     calculate_taxes_and_totals(si_doc)
