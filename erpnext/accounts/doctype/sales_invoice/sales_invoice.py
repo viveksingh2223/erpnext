@@ -168,8 +168,8 @@ class SalesInvoice(SellingController):
 
     ################################ Custom YTPL ############################
     def set_site_address(self):
-        from frappe.contacts.doctype.address.address import (get_address_display, get_default_address, get_company_address)
         # Site address display
+        from frappe.contacts.doctype.address.address import (get_address_display, get_default_address, get_company_address)
         self.site_address = get_default_address('Business Unit', self.site)
         if self.site_address:
             self.site_address_display = get_address_display(self.site_address)
@@ -269,7 +269,7 @@ class SalesInvoice(SellingController):
 
     def before_cancel(self):
         self.update_time_sheet(None)
-        self.check_payroll_entry() 
+        self.check_payroll_entry() ############## Custom YTPL CODE ####################
     ####### YTPL CODE STRAT##################
     def check_payroll_entry(self):
         sales_invoice_contract_list= frappe.db.sql("""select name, payroll_process from `tabProcessed Payroll` 
@@ -282,7 +282,7 @@ class SalesInvoice(SellingController):
     def update_attendance(self, status, update_modified=True):
         if self.items:
             for items in self.items:
-                if items.attendance and items.site:
+                if items.attendance:
                     frappe.db.set_value("People Attendance", items.attendance, "status", status, update_modified=update_modified)
                 if self.billing_period == 'Standard' and items.contract and items.site:
                     attendance= frappe.db.sql("""select name from `tabPeople Attendance` where contract= '%s' and attendance_period= '%s'"""%(items.contract, self.billing_period), as_dict= True)
@@ -303,6 +303,7 @@ class SalesInvoice(SellingController):
         self.update_status_updater_args()
         self.update_prevdoc_status()
         self.update_billing_status_in_dn()
+        ########################## CUSTOM YTPL CODE ################################################# 
         self.update_attendance("To Bill")
         update_modified=True
         if self.billing_type == "Standard":
@@ -313,8 +314,11 @@ class SalesInvoice(SellingController):
                 attendance= frappe.db.sql("""select pa.name, sum(atd.bill_duty) as total_bill_duty from `tabPeople Attendance` pa inner join `tabAttendance Details` atd on pa.name= atd.parent where pa.contract= '%s' and pa.attendance_period= '%s'"""%(contract.contract, self.billing_period), as_dict= True)
                 if len(attendance) > 0:
                     frappe.db.set_value("People Attendance", attendance[0]["name"], "status", 'To Bill', update_modified=update_modified)
+        elif self.billing_type == "Supplementry":
+            self.update_attendance("Partially Completed")
         else:
             self.update_attendance("To Bill")
+        ########################## CUSTOM YTPL CODE ################################################# 
         if not self.is_return:
             self.update_billing_status_for_zero_amount_refdoc("Sales Order")
             self.update_serial_no(in_cancel=True)
@@ -327,7 +331,7 @@ class SalesInvoice(SellingController):
             self.update_stock_ledger()
 
         self.make_gl_entries_on_cancel()
-        frappe.db.set(self, 'status', 'Cancelled')
+        frappe.db.set(self, 'status', 'Cancelled') ############ Custom YTPL CODE
 
         if frappe.db.get_single_value('Selling Settings', 'sales_update_frequency') == "Each Transaction":
             update_company_current_month_sales(self.company)
@@ -1243,7 +1247,7 @@ class SalesInvoice(SellingController):
             from erpnext.accounts.general_ledger import make_gl_entries
             make_gl_entries(gl_entries, cancel=(self.docstatus == 2), merge_entries=True)
 
-
+    #################### CUSTOM YTPL #######################################
     def get_sunday_count(self, start_date, end_date, period):
         from sps.sps.doctype.people_attendance.people_attendance import get_wo_count
         period_doc= frappe.get_doc('Salary Payroll Period', period)
@@ -1478,6 +1482,47 @@ class SalesInvoice(SellingController):
             if not si_items_row : frappe.msgprint(_("Rate Diffrence Not Found"))
         else: frappe.throw(_("Bill not generated after '{0}' for Customer : {1}").format(self.arrears_bill_from, self.customer))
         return "Item Fetched"
+    
+    
+    def get_data_to_make_supplementary_bill(self):
+        if self.billing_period and self.customer and self.standard_bill:
+            #filters  = [['docstatus', '=', 1],['is_return', '=', 0],['billing_type', 'in', ['Standard']],['customer', '=', self.customer]]
+            si_doc   = frappe.get_doc("Sales Invoice", self.standard_bill)            
+            sqlQuery = """select sum(pds.bill_duty) as qty, pds.work_type as work_type, pa.contract , pa.customer, pa.name
+                            from `tabPeople Attendance` pa 
+                            inner join `tabAttendance Details` pds on pa.name = pds.parent 
+                            where pa.contract in(select distinct sii.contract from `tabSales Invoice` si inner join `tabSales Invoice Item` sii on si.name= sii.parent where sii.parent= '%s' order by sii.contract) and pa.attendance_period = '%s' and pa.customer = '%s'
+                            group by pds.work_type, pa.name
+                            order by pa.contract, pds.work_type"""%(self.standard_bill, self.billing_period, self.customer)
+            
+            attd_doc = frappe.db.sql(sqlQuery, as_dict = True)
+            print(attd_doc, type(attd_doc))
+            #pa_doc   = frappe.get_doc("People Attendance", self.billing_period)
+            company_income_acount, cost_center= frappe.db.get_value('Company', self.company, ['default_income_account', 'cost_center'])
+            for i in range(len(attd_doc)):
+                diff_qty = 0
+                if si_doc.items[i].item_code == attd_doc[i]["work_type"] and attd_doc[i]["customer"] == si_doc.customer and si_doc.items[i].contract == attd_doc[i]["contract"]:
+                    if si_doc.items[i].qty < attd_doc[i]["qty"]:
+                        diff_qty = attd_doc[i]["qty"] - si_doc.items[i].qty
+                        self.append('items', {'rate':si_doc.items[i].rate,
+                                                            'qty':flt(diff_qty), 
+                                                            'price_list_rate':si_doc.items[i].rate,
+                                                            'item_code':si_doc.items[i].item_code,
+                                                            'item_name': si_doc.items[i].item_code,
+                                                            'description': si_doc.items[i].item_code,
+                                                            'uom': 'Nos',
+                                                            'contract':si_doc.items[i].contract,
+                                                            'attendance':attd_doc[i]["name"],
+                                                            'salary_structure':si_doc.items[i].salary_structure,
+                                                            'ss_revision_name':si_doc.items[i].ss_revision_name,
+                                                            'ss_revision_rate':si_doc.items[i].ss_revision_rate,
+                                                            'item_from_date':si_doc.items[i].item_from_date,
+                                                            'item_to_date':si_doc.items[i].item_to_date,
+                                                            'income_account': company_income_acount,
+                                                            'cost_center': cost_center,
+                                                            })
+        return "Done"
+    #################### CUSTOM YTPL END#######################################
 
 def booked_deferred_revenue():
     # check for the sales invoice for which GL entries has to be done
@@ -2114,6 +2159,8 @@ def po_wise_billing(customer, billing_period, pointer):
     calculate_taxes_and_totals(si_doc)
     si_doc.save()
     return my_pointer
+
+
 
 ################# YTPL Code End ###########################
 

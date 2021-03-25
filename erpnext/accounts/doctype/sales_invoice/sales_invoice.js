@@ -306,65 +306,17 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
         var me = this;
         if(me.frm.doc.billing_period && me.frm.doc.customer && me.frm.doc.standard_bill){
             frappe.model.clear_table(me.frm.doc, "items");
-            frappe.model.with_doc("Sales Invoice", me.frm.doc.standard_bill, function(r) {
-                var standard_si_doc = frappe.model.get_doc("Sales Invoice", me.frm.doc.standard_bill); //source_doc = Sales Invoice
-                $.each(standard_si_doc.items || [], function(index, sirow) {
-                    console.log("###### SI row :::::####",sirow.item_code)
-                    frappe.call({
-                        method: "frappe.client.get",
-                        args: {
-                            doctype: "People Attendance",
-                            filters: {
-                                "attendance_period": me.frm.doc.billing_period,
-                                "customer": me.frm.doc.customer,
-                                "contract": sirow.contract
-                            },
-                            limit_page_length: 1
-                        },
-                        callback: function (r) {
-                            if (r.message) {
-                                var att_qty=0.0;
-                                $.each(r.message.attendance_details || [], function(index, row) {
-                                    if(row.employee != undefined && row.employee != null && row.employee.trim() != ""){
-                                        if(row.work_type == sirow.item_code){
-                                            att_qty= att_qty + row.bill_duty;
-                                        }
-                                    }
-                                })
-                                if(sirow.qty != att_qty){
-                                    att_qty= (att_qty - sirow.qty);
-                                    console.log("####### Attendance Qty:::"+att_qty+"::::::::::: WT::::"+sirow.item_code);
-                                    console.log("####### Sales Invc Qty:::"+sirow.qty+"::::::::::: WT::::"+sirow.item_code);
-
-                                    var si_item = frappe.model.add_child(me.frm.doc, 'Sales Invoice Item', 'items');
-                                    frappe.model.set_value(si_item.doctype, si_item.name, 'rate', flt(sirow.rate)); //set row Rate
-                                    frappe.model.set_value(si_item.doctype, si_item.name, 'qty', flt(att_qty)); //set row QTY
-                                    frappe.model.set_value(si_item.doctype, si_item.name, 'price_list_rate', flt(sirow.rate)); //set row Price List Rate
-                                    frappe.model.set_value(si_item.doctype, si_item.name, 'item_code', sirow.item_code); //set row Item
-                                    frappe.model.set_value(si_item.doctype, si_item.name, 'contract', sirow.contract); //set ref Contract
-
-                                    frappe.model.set_value(si_item.doctype, si_item.name, 'salary_structure', sirow.salary_structure); // Salary structure
-                                    frappe.model.set_value(si_item.doctype, si_item.name, 'ss_revision_name', sirow.ss_revision_name); // Revision Name
-                                    frappe.model.set_value(si_item.doctype, si_item.name, 'ss_revision_no', sirow.ss_revision_no); // Revision No
-                                    frappe.model.set_value(si_item.doctype, si_item.name, 'ss_revision_rate', flt(sirow.ss_revision_rate)); // Rate Based on Revision
-
-                                    frappe.model.set_value(si_item.doctype, si_item.name, 'item_from_date', sirow.item_from_date); // Billing Period Start Date
-                                    frappe.model.set_value(si_item.doctype, si_item.name, 'item_to_date', sirow.item_to_date); // Billing Period End Date
-
-                                    me.frm.refresh_fields("items");
-                                }else { frappe.msgprint(__("QTY Diffrence Not Found.")) }
-                            }else{
-                                console.log("@@@@ No Attendance Found Against Selected Criteria.")
-                                frappe.msgprint(__("Attendance Not Found Against Selected Criteria."));
-                                frappe.model.clear_table(me.frm.doc, "items");
-                                me.frm.refresh_field("items");
-                                return false;
-                            }
-                        }
-                    });
-                })
-            })
-        }
+			frappe.call({
+				method: "get_data_to_make_supplementary_bill",
+				doc: cur_frm.doc,
+				callback: function(r) {
+				if(r.message) {
+				cur_frm.save()
+				cur_frm.refresh()
+				}
+				}
+			})
+		}
     },
 	get_rate_revision_btn: function(frm) {
         var me = this;
