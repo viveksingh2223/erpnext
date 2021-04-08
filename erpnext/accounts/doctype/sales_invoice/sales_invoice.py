@@ -215,15 +215,16 @@ class SalesInvoice(SellingController):
                                                                     inner join `tabSales Invoice Item` sii on si.name= sii.parent 
                                                                     where si.name= '%s' group by sii.attendance;"""%(self.name), as_dict= True)
             for attendance in attendance_wise_total_bill_quantity:
-                people_attendance= frappe.db.sql("""select pa.name, sum(atd.bill_duty) as total_bill_duty from `tabPeople Attendance` pa 
+                if attendance.attendance != None:
+                    people_attendance= frappe.db.sql("""select pa.name, sum(atd.bill_duty) as total_bill_duty from `tabPeople Attendance` pa 
                                             inner join `tabAttendance Details` atd on pa.name= atd.parent 
                                             where pa.name= '%s'"""%(attendance.attendance), as_dict= True)
-                if len(people_attendance) > 0:
-                    print(people_attendance[0]["total_bill_duty"], attendance.total_bill_duty)
-                    if people_attendance[0]["total_bill_duty"] > attendance.total_bill_duty:
-                        frappe.db.set_value("People Attendance", attendance.attendance, "status", 'Partially Completed', update_modified=update_modified)
-                    else:
-                        frappe.db.set_value("People Attendance", attendance.attendance, "status", 'Completed', update_modified=update_modified)
+                    if len(people_attendance) > 0:
+                        print(people_attendance[0]["total_bill_duty"], attendance.total_bill_duty)
+                        if people_attendance[0]["total_bill_duty"] > attendance.total_bill_duty:
+                            frappe.db.set_value("People Attendance", attendance.attendance, "status", 'Partially Completed', update_modified=update_modified)
+                        else:
+                            frappe.db.set_value("People Attendance", attendance.attendance, "status", 'Completed', update_modified=update_modified)
         elif self.billing_type == "Supplementry":
             self.update_attendance('Completed')
         else:
