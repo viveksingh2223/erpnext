@@ -220,7 +220,6 @@ class SalesInvoice(SellingController):
                                             inner join `tabAttendance Details` atd on pa.name= atd.parent 
                                             where pa.name= '%s'"""%(attendance.attendance), as_dict= True)
                     if len(people_attendance) > 0:
-                        print(people_attendance[0]["total_bill_duty"], attendance.total_bill_duty)
                         if people_attendance[0]["total_bill_duty"] > attendance.total_bill_duty:
                             frappe.db.set_value("People Attendance", attendance.attendance, "status", 'Partially Completed', update_modified=update_modified)
                         else:
