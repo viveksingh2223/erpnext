@@ -182,13 +182,14 @@ class SalesInvoice(SellingController):
     def before_submit(self):
         service_charges= 0.0
         if len(self.items) > 0:
-            for item in sel.items:
-                contract_doc= frappe.get_doc('Site Contract', item.contract)
-                if contract_doc.is_service_charges == 1:
-                    if contract_doc.mode_of_service_charges == 'Percentage':
-                        service_charges+= (item.amount * contract_doc.service_charges) / 100
-                    else:
-                        service_charges+= contract_doc.service_charges
+            for item in self.items:
+                if item.contract:
+                    contract_doc= frappe.get_doc('Site Contract', item.contract)
+                    if contract_doc.is_service_charges == 1:
+                        if contract_doc.mode_of_service_charges == 'Percentage':
+                            service_charges+= (item.amount * contract_doc.service_charges) / 100
+                        else:
+                            service_charges+= contract_doc.service_charges
             if service_charges > 0.0:
                 if att_data[0]["company"] == 'Security & Personnel Services Pvt. Ltd.':
                     si_doc.append('taxes', {"charge_type": "Actual", "account_head": "Service Charges - SPS", "description": "Service Charges", "amount": service_charges})
