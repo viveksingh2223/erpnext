@@ -56,6 +56,27 @@ frappe.listview_settings['Sales Invoice'] = {
                         }
 
                 });
+        listview.page.add_action_item(__("Create XML File"), function(){        
+            var selected_rows= listview.get_checked_items()
+            var names= [];
+            for(var i=0; i < listview.get_checked_items().length; i++){
+                names.push(selected_rows[i].name);
+            }
+            frappe.call({
+                method: "erpnext.accounts.doctype.sales_invoice.sales_invoice.create_xml_file_for_tally",
+                args: {
+                    "sales_invoice_list": names,
+                },
+                callback:function(r){
+                                if(r.message){
+                                    var a = document.createElement("a");
+                                    a.href = r.message[0];
+                                    a.setAttribute("download", r.message[1]);
+                                    a.click();
+                                }
+                }
+            });
+        });
 
     }
     //####################### CUSTOM SPS ERP CODe END ########################################

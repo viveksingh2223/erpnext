@@ -130,6 +130,7 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
 			});
 		}
 
+        //################ YTPL CUSTOM CODE START#########################
         var filters =  {
             'bu_name': 'None',
             'bu_type': 'None'
@@ -149,6 +150,25 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
                 });
             });
         }
+        if(cur_frm.doc.docstatus == 1){
+           if(!cur_frm.is_new()) {
+                cur_frm.add_custom_button(__("Create XML"), function(){
+                    frappe.call({
+                        method:"erpnext.accounts.doctype.sales_invoice.sales_invoice.create_xml_file_for_tally",
+                        args: {"sales_invoice_list" : [cur_frm.doc.name]},
+                        callback:function(r){
+                            if(r.message){
+                                var a = document.createElement("a");
+                                a.href = r.message[0];
+                                a.setAttribute("download", r.message[1]);
+                                a.click();
+                            }
+                        }
+                    });
+                }).toggleClass('btn-primary'); 
+            }
+        }
+        //################ YTPL CUSTOM CODE END#########################
 	},
 
 	on_submit: function(doc, dt, dn) {
@@ -309,6 +329,7 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
 			frappe.call({
 				method: "get_data_to_make_supplementary_bill",
 				doc: cur_frm.doc,
+                async: false,
 				callback: function(r) {
 				if(r.message) {
 				cur_frm.save()
@@ -326,6 +347,7 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
             frappe.call({
                 method: "get_data_to_make_arrears_bill",
                 doc: cur_frm.doc,
+                async: false,
                 callback: function(r) {
                     if(r.message) {
                         cur_frm.save()
@@ -588,6 +610,7 @@ var map_doc = function(opts) {
 			frappe.call({
 				method: "get_items_for_standard_billing",
 				doc: cur_frm.doc,
+                async: false,
 				args:{	"contract_list": opts.source_name, 
 						"period_from_date": billing_period_doc.start_date,
 						"period_to_date": billing_period_doc.end_date
@@ -657,6 +680,7 @@ var map_att_doc = function(opts) {
                 "att_list": opts.source_name,
                 "billing_period": cur_frm.doc.billing_period
             },
+            async: false,
             callback: function(r) {
                 if(r.message) {
 					cur_frm.save()

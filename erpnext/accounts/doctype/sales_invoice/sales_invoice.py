@@ -1783,6 +1783,117 @@ def get_loyalty_programs(customer):
 ################################ Custom YTPL ############################
 ################# YTPL Code Start ###########################
 @frappe.whitelist()
+def create_xml_file_for_tally(sales_invoice_list):
+    import xml.etree.ElementTree as grg
+    from frappe.utils.file_manager import download_file
+    from frappe.utils import get_bench_path, get_files_path
+    import datetime, os
+    sales_invoice_list= sales_invoice_list.replace('"', '')
+    sales_invoice_list= sales_invoice_list[1:len(sales_invoice_list)-1]
+    sales_invoice_list= sales_invoice_list.split(",") 
+    if len(sales_invoice_list) > 0:
+        root = grg.Element("ENVELOPE")
+        for sales_invoice in sales_invoice_list:
+            doc= frappe.get_doc('Sales Invoice', sales_invoice)
+            gst_number= frappe.db.get_value('Business Unit', {'bu_name': doc.customer}, ['gst_number'])
+            print(gst_number)
+            if gst_number:
+                DBCFIXED= grg.Element("DBCFIXED")
+                root.append(DBCFIXED)
+                DBCDATE= grg.SubElement(DBCFIXED, "DBCDATE")
+                DBCDATE.text= getdate(doc.posting_date).strftime("X%d-%b-%y").replace('X0', '') 
+                DBCPARTY= grg.SubElement(DBCFIXED, "DBCPARTY")
+                DBCPARTY.text= doc.customer
+                DBCVCHTYPE= grg.Element("DBCVCHTYPE")
+                root.append(DBCVCHTYPE)
+                DBCVCHTYPE.text= "Sales"
+                DBCVCHNO= grg.Element("DBCVCHNO")
+                root.append(DBCVCHNO)
+                DBCVCHNO.text= doc.name
+                DBCVCHREF= grg.Element("DBCVCHREF")
+                root.append(DBCVCHREF)
+                DBCVCHREF.text= doc.name
+                DBCGSTIN= grg.Element("DBCGSTIN")
+                root.append(DBCGSTIN)
+                DBCGSTIN.text= gst_number 
+                DBCNARR= grg.Element("DBCNARR")
+                root.append(DBCNARR)
+                DBCNARR.text= doc.name + " - " + doc.customer
+                DBCAMOUNT= grg.Element("DBCAMOUNT")
+                root.append(DBCAMOUNT)
+                DBCAMOUNT.text= str(doc.total)
+                DBCGROSSAMT= grg.Element("DBCGROSSAMT")
+                root.append(DBCGROSSAMT)
+                DBCGROSSAMT.text= str(doc.rounded_total)
+                DBCLEDAMT= grg.Element("DBCLEDAMT")
+                root.append(DBCLEDAMT)
+                DBCLEDAMT.text= str(doc.total)
+                if len(doc.taxes) > 0:
+                    if taxes_and_charges.upper().startswith("IN STATE"):
+                        DBCLEDAMT= grg.Element("DBCLEDAMT")
+                        root.append(DBCGROSSAMT)
+                        DBCLEDAMT.text= str(doc.taxes[0].tax_amount)
+                        DBCLEDAMT= grg.Element("DBCLEDAMT")
+                        root.append(DBCGROSSAMT)
+                        DBCLEDAMT.text= str(doc.taxes[1].tax_amount)
+                        DBCLEDAMT= grg.Element("DBCLEDAMT")
+                        root.append(DBCGROSSAMT)
+                        DBCLEDAMT.text= str(doc.rounding_adjustment)
+                        DBCLEDAMT= grg.Element("DBCLEDAMT")
+                        root.append(DBCGROSSAMT)
+                        DBCLEDAMT.text= ""
+                        DBCLEDAMT= grg.Element("DBCLEDAMT")
+                        root.append(DBCGROSSAMT)
+                        DBCLEDAMT.text= ""
+                    else:
+                        DBCLEDAMT= grg.Element("DBCLEDAMT")
+                        root.append(DBCGROSSAMT)
+                        DBCLEDAMT.text= ""
+                        DBCLEDAMT= grg.Element("DBCLEDAMT")
+                        root.append(DBCGROSSAMT)
+                        DBCLEDAMT.text= ""
+                        DBCLEDAMT= grg.Element("DBCLEDAMT")
+                        root.append(DBCGROSSAMT)
+                        DBCLEDAMT.text= str(doc.rounding_adjustment)
+                        DBCLEDAMT= grg.Element("DBCLEDAMT")
+                        root.append(DBCGROSSAMT)
+                        DBCLEDAMT.text= str(doc.taxes[0].tax_amount)
+                        DBCLEDAMT= grg.Element("DBCLEDAMT")
+                        root.append(DBCGROSSAMT)
+                        DBCLEDAMT.text= ""
+                else:
+                    DBCLEDAMT= grg.Element("DBCLEDAMT")
+                    root.append(DBCGROSSAMT)
+                    DBCLEDAMT.text= ""
+                    DBCLEDAMT= grg.Element("DBCLEDAMT")
+                    root.append(DBCGROSSAMT)
+                    DBCLEDAMT.text= ""
+                    DBCLEDAMT= grg.Element("DBCLEDAMT")
+                    root.append(DBCGROSSAMT)
+                    DBCLEDAMT.text= str(doc.rounding_adjustment)
+                    DBCLEDAMT= grg.Element("DBCLEDAMT")
+                    root.append(DBCGROSSAMT)
+                    DBCLEDAMT.text= ""
+                    DBCLEDAMT= grg.Element("DBCLEDAMT")
+                    root.append(DBCGROSSAMT)
+                    DBCLEDAMT.text= ""
+        tree = grg.ElementTree(root)
+        file_name= "Sales-Invoice-"+datetime.datetime.now().strftime("%d%m%Y%H%M%S")+".xml"
+        path= get_bench_path()+"/sites"+ get_files_path(is_private= False).replace('.', '')+"/%s"%(file_name)
+        tree.write(path)
+        file_doc= frappe.new_doc("File")
+        file_doc.file_name= file_name
+        file_doc.is_private= 0
+        file_doc.attached_to_doctype= "Sales Invoice"
+        file_doc.attached_to_name= doc.name
+        file_doc.file_url=  "/files/%s" %(file_name)
+        file_doc.flags.ignore_mandatory= True
+        file_doc.flags.ignore_permissions= True
+        file_doc.save()
+        file_actual_name= file_doc.save()
+        return frappe.utils.get_url()+"/files/%s" %(file_name), file_name
+        
+@frappe.whitelist()
 def auto_invoice_creation(billing_period):
     msg= ""
     pointer= 30001
