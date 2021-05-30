@@ -3,6 +3,14 @@
 
 frappe.ui.form.on('Compensatory Leave Request', {
 	refresh: function(frm) {
+		// ######## CUSTOM YTPL CODE START ############
+        cur_frm.fields_dict.employee.get_query = function(doc) {
+            return {
+                filters: { "employee_type" : 'MORGAN STAFF', "status" : "Active"}
+            }
+        }
+        frm.refresh_field("employee");
+    	// ######## CUSTOM YTPL CODE END############
 		frm.set_query("leave_type", function() {
 			return {
 				filters: {

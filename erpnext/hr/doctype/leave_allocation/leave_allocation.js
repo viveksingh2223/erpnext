@@ -4,7 +4,25 @@
 cur_frm.add_fetch('employee','employee_name','employee_name');
 
 frappe.ui.form.on("Leave Allocation", {
+	// ######## CUSTOM YTPL CODE START ############
+	refresh: function(frm){
+		cur_frm.fields_dict.employee.get_query = function(doc) {
+            return {
+                filters: { "employee_type" : 'MORGAN STAFF', "status" : "Active"}
+            }
+        }
+        frm.refresh_field("employee");
+	},
+	// ######## CUSTOM YTPL CODE END############
 	onload: function(frm) {
+		// ######## CUSTOM YTPL CODE START ############
+		cur_frm.fields_dict.employee.get_query = function(doc) {
+            return {
+                filters: { "employee_type" : 'MORGAN STAFF', "status" : "Active"}
+            }
+        }
+        frm.refresh_field("employee");
+		// ######## CUSTOM YTPL CODE END############
 		if(!frm.doc.from_date) frm.set_value("from_date", frappe.datetime.get_today());
 
 		frm.set_query("employee", function() {

@@ -18,7 +18,25 @@ frappe.ui.form.on("Leave Application", {
 
 		frm.set_query("employee", erpnext.queries.employee);
 	},
+	// ######## CUSTOM YTPL CODE START ############
+    refresh: function(frm){
+        cur_frm.fields_dict.employee.get_query = function(doc) {
+            return {
+                filters: { "employee_type" : 'MORGAN STAFF', "status" : "Active"}
+            }
+        }
+        frm.refresh_field("employee");
+    },
+    // ######## CUSTOM YTPL CODE END############
 	onload: function(frm) {
+		// ######## CUSTOM YTPL CODE START ############
+        cur_frm.fields_dict.employee.get_query = function(doc) {
+            return {
+                filters: { "employee_type" : 'MORGAN STAFF', "status" : "Active"}
+            }
+        }
+        frm.refresh_field("employee");
+        // ######## CUSTOM YTPL CODE END############
 		if (!frm.doc.posting_date) {
 			frm.set_value("posting_date", frappe.datetime.get_today());
 		}

@@ -16,6 +16,14 @@ frappe.ui.form.on('Leave Encashment', {
 		if(frm.doc.__islocal && !in_list(frappe.user_roles, "Employee")) {
 			frm.set_intro(__("Fill the form and save it"));
 		}
+		// ######## CUSTOM YTPL CODE START ############
+        cur_frm.fields_dict.employee.get_query = function(doc) {
+            return {
+                filters: { "employee_type" : 'MORGAN STAFF', "status" : "Active"}
+            }
+        }
+        frm.refresh_field("employee");
+    	// ######## CUSTOM YTPL CODE END############
 	},
 	employee: function(frm) {
 		frm.trigger("get_leave_details_for_encashment");
