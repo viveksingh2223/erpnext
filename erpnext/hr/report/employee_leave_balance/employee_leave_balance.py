@@ -37,11 +37,11 @@ def get_data(filters, leave_types):
 
 	if filters.to_date <= filters.from_date:
 		frappe.throw(_("From date can not be greater than than To date"))
-
 	active_employees = frappe.get_all("Employee",
-		filters = { "status": "Active", "company": filters.company},
+		filters = { "status": "Active", "company": filters.company, "employee_type": 'MORGAN STAFF'},
 		fields = ["name", "employee_name", "department", "user_id"])
-
+	if filters.get('employee'):
+		active_employees = frappe.get_all("Employee", filters = { "status": "Active", "company": filters.company, "employee_type": 'MORGAN STAFF', 'name': filters.get('employee')}, fields = ["name", "employee_name", "department", "user_id"])
 	data = []
 	for employee in active_employees:
 		leave_approvers = get_approvers(employee.department)
@@ -52,7 +52,7 @@ def get_data(filters, leave_types):
 				# leaves taken
 				leaves_taken = get_approved_leaves_for_period(employee.name, leave_type,
 					filters.from_date, filters.to_date)
-
+				print("####leaves_taken##", leaves_taken)
 				# opening balance
 				opening = get_leave_balance_on(employee.name, leave_type, filters.from_date,
 					allocation_records_based_on_to_date.get(employee.name, frappe._dict()))
