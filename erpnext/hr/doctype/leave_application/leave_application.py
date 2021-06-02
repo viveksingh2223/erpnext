@@ -303,10 +303,12 @@ class LeaveApplication(Document):
 		})
 
 	def notify_leave_approver(self):
+		import datetime
 		if self.leave_approver:
 			parent_doc = frappe.get_doc('Leave Application', self.name)
 			args = parent_doc.as_dict()
-
+			args.from_date= args.from_date.strftime('%d-%b-%Y')	
+			args.to_date= args.to_date.strftime('%d-%b-%Y')	
 			template = frappe.db.get_single_value('HR Settings', 'leave_approval_notification_template')
 			if not template:
 				frappe.msgprint(_("Please set default template for Leave Approval Notification in HR Settings."))
@@ -330,16 +332,18 @@ class LeaveApplication(Document):
 			if not isinstance(contact, list):
 				if not args.notify == "employee":
 					contact = frappe.get_doc('User', contact).email or contact
-
-			sender      	    = dict()
-			sender['email']     = frappe.get_doc('User', frappe.session.user).email
+			####### Custom YTPL CODE############
+			addtional_subject= "From " +frappe.get_doc('User', frappe.session.user).email ## Custom
+			sender				= dict()
+			sender['email']     = frappe.get_doc('User', frappe.session.user).email ## Custom
 			sender['full_name'] = frappe.utils.get_fullname(sender['email'])
 
 			try:
 				frappe.sendmail(
 					recipients = contact,
-					sender = sender['email'],
-					subject = args.subject,
+					#sender = sender['email'],
+					sender = "erpinfo@youtility.in", ## Custom
+					subject = args.subject + addtional_subject, ## Custom
 					message = args.message,
 				)
 				frappe.msgprint(_("Email sent to {0}").format(contact))
