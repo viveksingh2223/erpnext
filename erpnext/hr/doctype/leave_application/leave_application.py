@@ -10,6 +10,7 @@ from erpnext.hr.utils import set_employee_name, get_leave_period
 from erpnext.hr.doctype.leave_block_list.leave_block_list import get_applicable_block_dates
 from erpnext.hr.doctype.employee.employee import get_holiday_list_for_employee
 from erpnext.buying.doctype.supplier_scorecard.supplier_scorecard import daterange
+import datetime
 
 class LeaveDayBlockedError(frappe.ValidationError): pass
 class OverlapError(frappe.ValidationError): pass
@@ -285,6 +286,8 @@ class LeaveApplication(Document):
 
 		parent_doc = frappe.get_doc('Leave Application', self.name)
 		args = parent_doc.as_dict()
+		args.from_date= args.from_date.strftime('%d-%b-%Y')
+		args.to_date= args.to_date.strftime('%d-%b-%Y')
 
 		template = frappe.db.get_single_value('HR Settings', 'leave_status_notification_template')
 		if not template:
@@ -303,7 +306,6 @@ class LeaveApplication(Document):
 		})
 
 	def notify_leave_approver(self):
-		import datetime
 		if self.leave_approver:
 			parent_doc = frappe.get_doc('Leave Application', self.name)
 			args = parent_doc.as_dict()
