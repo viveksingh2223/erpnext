@@ -19,8 +19,6 @@ class NotAnOptionalHoliday(frappe.ValidationError): pass
 
 from frappe.model.document import Document
 class LeaveApplication(Document):
-
-<<<<<<< HEAD
     def get_feed(self):
         return _("{0}: From {0} of type {1}").format(self.employee_name, self.leave_type)
 
