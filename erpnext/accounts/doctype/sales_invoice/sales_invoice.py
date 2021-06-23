@@ -1896,12 +1896,18 @@ def create_xml_file_for_tally(sales_invoice_list):
         
 @frappe.whitelist()
 def auto_invoice_creation(billing_period):
+    import re 
     msg= ""
     pointer= 30001
     data= frappe.db.sql("""select bill_number from `tabSales Invoice` order by bill_number desc limit 1;""", as_dict= True)
     if len(data) > 0:
-        if data[0]["bill_number"] is not None and data[0]["bill_number"] != '': 
-            pointer= int(data[0]["bill_number"]) + 1
+        if data[0]["bill_number"] is not None and data[0]["bill_number"] != '':
+            string_check= re.compile('[@_!#$%^&*()<>?/\|}{~:]')
+            if(string_check.search(data[0]["bill_number"]) == None):
+                pointer= int(data[0]["bill_number"]) + 1
+            else:
+                temp= data[0]["bill_number"].split("-")
+                pointer= int(temp[len(temp) - 1]) + 1
     all_customers= frappe.db.sql("""select distinct customer from `tabPeople Attendance` where attendance_period= '%s' and status= 'To Bill'""" %(billing_period), as_dict= True)
     if len(all_customers) >  0:
         att_wise_bill_count= cust_wise_bill_count= standard_bill_count= po_bill_count=0
