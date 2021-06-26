@@ -811,11 +811,9 @@ def get_events(start, end, filters=None):
         as_dict=True)
     if employee:
         employee, company = employee.name, employee.company
-        print(company)
     else:
         employee=''
         company=frappe.db.get_value("Global Defaults", None, "default_company")
-        print(company)
 
     from frappe.desk.reportview import get_filters_cond
     conditions = get_filters_cond("Leave Application", filters, [])
@@ -873,7 +871,8 @@ def add_leaves(events, start, end, filter_conditions=None):
             "from_date": d.from_date,
             "to_date": d.to_date,
             "docstatus": d.docstatus,
-            "color": d.color,
+            #"color": d.color,
+            "color"	: "#F96333", #### CUSTOM YTPL CODE
             "title": cstr(d.employee_name) + \
                 (d.half_day and _(" (Half Day)") or ""),
         }
@@ -910,7 +909,8 @@ def add_holidays(events, start, end, employee, company):
                 "from_date": holiday.holiday_date,
                 "to_date":  holiday.holiday_date,
                 "title": _("Holiday") + ": " + cstr(holiday.description),
-                "name": holiday.name
+                "name": holiday.name,
+				"color": "#F4F11D" if holiday.description in ('Sunday', 'Saturday') else "#51C919" ### CUSTOM YTPL CODE
             })
 
 @frappe.whitelist()
