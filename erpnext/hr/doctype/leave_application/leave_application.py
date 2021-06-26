@@ -910,7 +910,7 @@ def add_holidays(events, start, end, employee, company):
                 "to_date":  holiday.holiday_date,
                 "title": _("Holiday") + ": " + cstr(holiday.description),
                 "name": holiday.name,
-				"color": "#F4F11D" if holiday.description in ('Sunday', 'Saturday') else "#51C919" ### CUSTOM YTPL CODE
+				"color": "#F4F11D" if holiday.description in ("Sunday", "Saturday") else "#51C919" #### CUSTOM YTPL CODE
             })
 
 @frappe.whitelist()
