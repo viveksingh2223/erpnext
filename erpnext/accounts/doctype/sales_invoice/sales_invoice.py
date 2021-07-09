@@ -1895,7 +1895,7 @@ def create_xml_file_for_tally(sales_invoice_list):
         return frappe.utils.get_url()+"/files/%s" %(file_name), file_name
         
 @frappe.whitelist()
-def auto_invoice_creation(billing_period):
+def auto_invoice_creation(billing_period, customer= None):
     import re 
     msg= ""
     pointer= 30001
@@ -1908,7 +1908,12 @@ def auto_invoice_creation(billing_period):
             else:
                 temp= data[0]["bill_number"].split("-")
                 pointer= int(temp[len(temp) - 1]) + 1
-    all_customers= frappe.db.sql("""select distinct customer from `tabPeople Attendance` where attendance_period= '%s' and status= 'To Bill'""" %(billing_period), as_dict= True)
+    all_customers= []
+    if customer != None:
+        all_customers= frappe.db.sql("""select distinct customer from `tabPeople Attendance` where attendance_period= '%s' and status= 'To Bill' and customer= '%s'""" %(billing_period, customer), as_dict= True)
+    else:
+        all_customers= frappe.db.sql("""select distinct customer from `tabPeople Attendance` where attendance_period= '%s' and status= 'To Bill'""" %(billing_period), as_dict= True)
+        
     if len(all_customers) >  0:
         att_wise_bill_count= cust_wise_bill_count= standard_bill_count= po_bill_count=0
         for i in range(0, len(all_customers)):
@@ -2033,6 +2038,7 @@ def attendance_wise_invoicing(customer, billing_period, pointer):
                                     }
                         )
             address= get_customer_address(data["site"]) if get_customer_address(data["site"]) is not None else get_customer_address(customer.customer_code)# address display pending
+        si_doc.company= att_data[0]["company"]
         if address and address.gst_state != None:
             if att_data[0]["company"] == 'Security & Personnel Services Pvt. Ltd.':
                 si_doc.taxes_and_charges= "Out of State GST - SPS" if str(address.gst_state).strip().upper() != "MAHARASHTRA" else "In State GST - SPS"
@@ -2116,6 +2122,7 @@ def customer_or_state_wise_invoicing(customer, billing_period, pointer):
                                     "item_to_date": att_data[0]["end_date"]
                                     }
                     )
+    si_doc.company= att_data[0]["company"]
     if address and address.gst_state != None:
         if att_data[0]["company"] == 'Security & Personnel Services Pvt. Ltd.':
             si_doc.taxes_and_charges= "Out of State GST - SPS" if str(address.gst_state).strip().upper() != "MAHARASHTRA" else "In State GST - SPS"
@@ -2211,6 +2218,7 @@ def standard_invoicing(customer, billing_period, pointer):
                         )
                 #address= get_customer_address(data["site"]) # address display pending
                 address= get_customer_address(data["site"]) if get_customer_address(data["site"]) is not None else get_customer_address(customer.customer_code)# address display pending
+            si_doc.company= bill_data[0]["company"]
             if address and address.gst_state != None:
                 if bill_data[0]["company"]  == 'Security & Personnel Services Pvt. Ltd.':
                     si_doc.taxes_and_charges= "Out of State GST - SPS" if str(address.gst_state).strip().upper() != "MAHARASHTRA" else "In State GST - SPS"
@@ -2297,6 +2305,7 @@ def po_wise_billing(customer, billing_period, pointer):
                                 }
             )
     address= get_customer_address(customer.customer_code)# address display pending
+    si_doc.company= bill_data[0]["company"]
     if address and address.gst_state != None:
         if bill_data[0]["company"] == 'Security & Personnel Services Pvt. Ltd.':
             si_doc.taxes_and_charges= "Out of State GST - SPS" if str(address.gst_state).strip().upper() != "MAHARASHTRA" else "In State GST - SPS"

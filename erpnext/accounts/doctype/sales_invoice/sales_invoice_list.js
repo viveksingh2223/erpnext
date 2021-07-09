@@ -32,6 +32,13 @@ frappe.listview_settings['Sales Invoice'] = {
                                                 options: "Salary Payroll Period",
                                                 reqd: 1,
                                             },
+                                            {
+                                                fieldtype: "Link",
+                                                fieldname: "customer",
+                                                label: __("Customer"),
+                                                description: __("Select customer, If you want to process for single customer"),
+                                                options: "Customer",
+                                            },
                                             {"fieldtype": "Section Break","fieldname": "sectionbreak12"},
                                             {"fieldtype": "Button", "label": __("Create Invoices"), "fieldname": "create_invoices"}
 
@@ -43,10 +50,12 @@ frappe.listview_settings['Sales Invoice'] = {
                             var values = dialog.get_values();
                             console.log(values.billing_period)
 			    msgprint("Please Wait!! Auto Invoicing In Progress")
+                            console.log(values.customer)
                             frappe.call({
                                     method: "erpnext.accounts.doctype.sales_invoice.sales_invoice.auto_invoice_creation",
                                     args:{
                                             "billing_period": values.billing_period,
+                                            "customer": values.customer,
                                         },
                                     callback: function(r){
                                         frappe.msgprint(r)
