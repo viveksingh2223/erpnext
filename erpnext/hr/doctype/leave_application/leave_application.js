@@ -57,6 +57,7 @@ frappe.ui.form.on("Leave Application", {
 
 	validate: function(frm) {
 		frm.toggle_reqd("half_day_date", frm.doc.half_day == 1);
+        frm.trigger("check_eligibility_for_marriage_leave")
 	},
 
 	make_dashboard: function(frm) {
@@ -110,6 +111,7 @@ frappe.ui.form.on("Leave Application", {
 		frm.trigger("make_dashboard");
 		frm.trigger("get_leave_balance");
 		frm.trigger("set_leave_approver");
+        frm.trigger("check_eligibility_for_marriage_leave")
 	},
 
 	leave_approver: function(frm) {
@@ -120,6 +122,7 @@ frappe.ui.form.on("Leave Application", {
 
 	leave_type: function(frm) {
 		frm.trigger("get_leave_balance");
+        frm.trigger("check_eligibility_for_marriage_leave")
 	},
 
 	half_day: function(frm) {
@@ -135,6 +138,7 @@ frappe.ui.form.on("Leave Application", {
 	from_date: function(frm) {
 		frm.trigger("half_day_datepicker");
 		frm.trigger("calculate_total_days");
+        frm.trigger("check_eligibility_for_marriage_leave")
 	},
 
 	to_date: function(frm) {
@@ -224,5 +228,32 @@ frappe.ui.form.on("Leave Application", {
 				}
 			});
 		}
-	}
+	},
+
+    // ############ CUSTOM YTPL CODE START ###############
+    check_eligibility_for_marriage_leave: function(frm){
+        if(cur_frm.doc.leave_type == 'Marriage Leave'){
+            if(cur_frm.doc.employee != undefined && cur_frm.doc.from_date != undefined){
+                console.log("Employee", cur_frm.doc.employee)
+                var emp_doj= undefined
+                var emp_marital_status= undefined
+                frappe.call({
+                    method: "get_doj_marital_status",
+                    doc: cur_frm.doc,
+                    args:{"employee": cur_frm.doc.employee},
+                    async: false,
+                    callback: function(r){
+                        emp_doj= r.message[0]
+                        emp_marital_status= r.message[1]
+                    }
+                })
+                console.log("emp_doj", emp_doj)
+                console.log("emp_marital_status", emp_marital_status)
+                if(emp_marital_status != 'Single' || cur_frm.doc.from_date < frappe.datetime.add_days(emp_doj, 365)){
+                    frappe.throw("Employee Is Not Eligible For Taking Marriage Leave")
+                }
+            }
+        }
+    }
+    // ############ CUSTOM YTPL CODE END ###############
 });

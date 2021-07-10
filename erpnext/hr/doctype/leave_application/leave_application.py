@@ -682,6 +682,19 @@ class LeaveApplication(Document):
                 frappe.msgprint(_("Email sent to {0}").format(contact))
             except frappe.OutgoingEmailError:
                 pass
+    
+    ############ CUSTOM YTPL CODE START #################
+    def get_doj_marital_status(self, employee):
+        data= frappe.db.sql("select date_of_joining, marital_status from `tabEmployee` where name= '%s'"%(employee), as_dict= True)
+        doj= None
+        marital_status= None
+        if len(data)> 0:
+            print(data)
+            doj= data[0]["date_of_joining"]
+            marital_status= data[0]["marital_status"]
+        return doj, marital_status
+    ############ CUSTOM YTPL CODE START #################
+        
 
 @frappe.whitelist()
 def get_number_of_leave_days(employee, leave_type, from_date, to_date, half_day = None, half_day_date = None):
