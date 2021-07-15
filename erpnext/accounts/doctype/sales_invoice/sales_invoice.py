@@ -1344,20 +1344,14 @@ class SalesInvoice(SellingController):
         rate= 0.0
         wage_rule= frappe.get_doc("Wage Structure", salary_structure)
         for i in range(0, len(wage_rule.wage_rule_details)):
-            if wage_rule_rev_name == None:
-                if getdate(wage_rule.wage_rule_details[i].from_date) <= getdate(start_date) and getdate(wage_rule.wage_rule_details[i].to_date) >= getdate(end_date):
-                    wage_rule_rev_name= wage_rule.wage_rule_details[i].name
-                    if wage_rule.wage_rule_details[i].rate_per == "Month":
-                        if wage_rule.wage_rule_details[i].wage_days == "Fixed": # new changes
-                            rate= round(wage_rule.wage_rule_details[i].rate / wage_rule.wage_rule_details[i].total_wage_days, 2)
-                        else:
-                            rate= round(wage_rule.wage_rule_details[i].rate / total_days, 2)
-                    else: rate= round(wage_rule.wage_rule_details[i].rate, 2)
-            elif wage_rule.wage_rule_details[i].name == wage_rule_rev_name:
+            if getdate(wage_rule.wage_rule_details[i].from_date) <= getdate(start_date) and getdate(wage_rule.wage_rule_details[i].to_date) >= getdate(end_date):
+                wage_rule_rev_name= wage_rule.wage_rule_details[i].name
                 if wage_rule.wage_rule_details[i].rate_per == "Month":
-                    rate= round(wage_rule.wage_rule_details[i].rate / total_days, 2)
+                    if wage_rule.wage_rule_details[i].wage_days == "Fixed": # new changes
+                        rate= round(wage_rule.wage_rule_details[i].rate / wage_rule.wage_rule_details[i].total_wage_days, 2)
+                    else:
+                        rate= round(wage_rule.wage_rule_details[i].rate / total_days, 2)
                 else: rate= round(wage_rule.wage_rule_details[i].rate, 2)
-            else: pass
         return rate, wage_rule_rev_name
 
     def get_items_for_standard_billing(self, contract_list, period_from_date, period_to_date):
@@ -1966,19 +1960,13 @@ def get_price(salary_structure, wage_rule_rev_name, start_date, end_date):
     rate= 0.0
     wage_rule= frappe.get_doc("Wage Structure", salary_structure)
     for i in range(0, len(wage_rule.wage_rule_details)):
-        if wage_rule_rev_name == None:
-            if getdate(wage_rule.wage_rule_details[i].from_date) <= getdate(start_date) and getdate(wage_rule.wage_rule_details[i].to_date) >= getdate(end_date):
-                if wage_rule.wage_rule_details[i].rate_per == "Month":
-                    if wage_rule.wage_rule_details[i].wage_days == "Fixed": # new changes
-                        rate= round(wage_rule.wage_rule_details[i].rate / wage_rule.wage_rule_details[i].total_wage_days, 2)
-                    else:
-                        rate= round(wage_rule.wage_rule_details[i].rate / total_days, 2)
-                else: rate= round(wage_rule.wage_rule_details[i].rate, 2)
-        elif wage_rule.wage_rule_details[i].name == wage_rule_rev_name:
+        if getdate(wage_rule.wage_rule_details[i].from_date) <= getdate(start_date) and getdate(wage_rule.wage_rule_details[i].to_date) >= getdate(end_date):
             if wage_rule.wage_rule_details[i].rate_per == "Month":
-                rate= round(wage_rule.wage_rule_details[i].rate / total_days, 2)
+                if wage_rule.wage_rule_details[i].wage_days == "Fixed": # new changes
+                    rate= round(wage_rule.wage_rule_details[i].rate / wage_rule.wage_rule_details[i].total_wage_days, 2)
+                else:
+                    rate= round(wage_rule.wage_rule_details[i].rate / total_days, 2)
             else: rate= round(wage_rule.wage_rule_details[i].rate, 2)
-        else: pass
     return rate
 
 def get_sunday_count(start_date, end_date, period):
