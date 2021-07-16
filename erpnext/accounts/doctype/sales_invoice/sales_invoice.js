@@ -301,6 +301,15 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
         if(me.frm.doc.billing_type=="Attendance" && me.frm.doc.billing_period && me.frm.doc.customer){
 	        frappe.model.with_doc("Salary Payroll Period", cur_frm.doc.billing_period, function() {
                 var billing_period_doc = frappe.model.get_doc("Salary Payroll Period", cur_frm.doc.billing_period);
+                var draft_bill_list= []
+                frappe.call({
+                    method: 'get_draft_bill',
+                    doc: cur_frm.doc,
+                    async: false,
+                    callback: function(r){
+                        draft_bill_list= r.message
+                    }
+                })
                 map_att_doc({
                     source_doctype: "People Attendance",
                     target: me.frm,
@@ -314,7 +323,8 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
                         attendance_period: ["=", me.frm.doc.billing_period],
                         customer: ["=", me.frm.doc.customer],
                         status: ["=", "To Bill"],
-                        company: me.frm.doc.company
+                        company: me.frm.doc.company,
+                        name: ['not in', draft_bill_list]
                     }
                 })
             })

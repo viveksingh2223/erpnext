@@ -304,6 +304,10 @@ class SalesInvoice(SellingController):
                                                         and period= '%s';"""%(self.name, self.billing_period))
         if len(sales_invoice_contract_list) > 0:
             frappe.throw("Payroll Process Has Been Complete For Selected Bill, Bill Can Not Be Cancel Or Delete")
+
+    def on_trash(self):
+        self.update_attendance("To Bill")
+
     ######## YTPL CODE END ##################
     def update_attendance(self, status, update_modified=True):
         if self.items:
@@ -1542,6 +1546,15 @@ class SalesInvoice(SellingController):
                                                             'cost_center': cost_center,
                                                             })
         return "Done"
+    def get_draft_bill(self):
+        data= frappe.db.sql("""select distinct sii.attendance from `tabSales Invoice` si inner join `tabSales Invoice Item` sii 
+                                on si.name= sii.parent where si.docstatus= 0 
+                                and si.billing_period= '%s' and si.customer= '%s' and sii.attendance is not null"""%(self.billing_period, self.customer), as_dict= True)
+        result= []
+        if len(data) > 0:
+            for row in data:
+                result.append(row.attendance)
+        return result
     #################### CUSTOM YTPL END#######################################
 
 def booked_deferred_revenue():
