@@ -191,18 +191,18 @@ class SalesInvoice(SellingController):
                         else:
                             service_charges+= contract_doc.service_charges
             if service_charges > 0.0:
-                if att_data[0]["company"] == 'Security & Personnel Services Pvt. Ltd.':
-                    si_doc.append('taxes', {"charge_type": "Actual", "account_head": "Service Charges - SPS", "description": "Service Charges", "amount": service_charges})
-                    calculate_taxes_and_totals(si_doc)
-                elif att_data[0]["company"] == 'Metro Facility Services':
+                if self.company == 'Security & Personnel Services Pvt. Ltd.':
+                    self.append('taxes', {"charge_type": "Actual", "account_head": "Service Charges - SPS", "description": "Service Charges", "amount": service_charges})
+                    calculate_taxes_and_totals(self)
+                elif self.company == 'Metro Facility Services':
                     si_doc.append('taxes', {"charge_type": "Actual", "account_head": "Service Charges - MFS", "description": "Service Charges", "amount": service_charges})
-                    calculate_taxes_and_totals(si_doc)
-                elif att_data[0]["company"] == 'Falcon Facility Services':
-                    si_doc.append('taxes', {"charge_type": "Actual", "account_head": "Service Charges - FFS", "description": "Service Charges", "amount": service_charges})
-                    calculate_taxes_and_totals(si_doc)
-                elif att_data[0]["company"] == 'Sukhi Facility Services Pvt. Ltd.':
-                    si_doc.append('taxes', {"charge_type": "Actual", "account_head": "Service Charges - SFS", "description": "Service Charges", "amount": service_charges})
-                    calculate_taxes_and_totals(si_doc)
+                    calculate_taxes_and_totals(self)
+                elif self.company == 'Falcon Facility Services':
+                    self.append('taxes', {"charge_type": "Actual", "account_head": "Service Charges - FFS", "description": "Service Charges", "amount": service_charges})
+                    calculate_taxes_and_totals(self)
+                elif self.company == 'Sukhi Facility Services Pvt. Ltd.':
+                    self.append('taxes', {"charge_type": "Actual", "account_head": "Service Charges - SFS", "description": "Service Charges", "amount": service_charges})
+                    calculate_taxes_and_totals(self)
                 else: pass
                  
     def on_submit(self):
