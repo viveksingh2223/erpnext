@@ -233,13 +233,14 @@ class SalesInvoice(SellingController):
             contract_wise_total_bill_quantity= frappe.db.sql("""select sii.contract, sum(sii.qty) as total_bill_duty from `tabSales Invoice` si 
                                                                 inner join `tabSales Invoice Item` sii on si.name= sii.parent 
                                                                 where si.name= '%s' group by sii.contract;"""%(self.name), as_dict= True)
-            for contract in contract_wise_total_bill_quantity: 
+            for contract in contract_wise_total_bill_quantity:
                 attendance= frappe.db.sql("""select pa.name, sum(atd.bill_duty) as total_bill_duty from `tabPeople Attendance` pa inner join `tabAttendance Details` atd on pa.name= atd.parent where pa.contract= '%s' and pa.attendance_period= '%s'"""%(contract.contract, self.billing_period), as_dict= True)
                 if len(attendance) > 0:
-                    if attendance[0]["total_bill_duty"] > contract.total_bill_duty:
-                        frappe.db.set_value("People Attendance", attendance[0]["name"], "status", 'Partially Completed', update_modified=update_modified)
-                    else:
-                        frappe.db.set_value("People Attendance", attendance[0]["name"], "status", 'Completed', update_modified=update_modified)
+                    if attendance[0]["name"] != None and attendance[0]["name"] != 'None': 
+                        if attendance[0]["total_bill_duty"] > contract.total_bill_duty:
+                            frappe.db.set_value("People Attendance", attendance[0]["name"], "status", 'Partially Completed', update_modified=update_modified)
+                        else:
+                            frappe.db.set_value("People Attendance", attendance[0]["name"], "status", 'Completed', update_modified=update_modified)
         elif self.billing_type == "Attendance":
             attendance_wise_total_bill_quantity= frappe.db.sql("""select sii.attendance as attendance, sum(sii.qty) as total_bill_duty from `tabSales Invoice` si 
                                                                     inner join `tabSales Invoice Item` sii on si.name= sii.parent 
@@ -1356,10 +1357,7 @@ class SalesInvoice(SellingController):
             if getdate(wage_rule.wage_rule_details[i].from_date) <= getdate(start_date) and getdate(wage_rule.wage_rule_details[i].to_date) >= getdate(end_date):
                 wage_rule_rev_name= wage_rule.wage_rule_details[i].name
                 if wage_rule.wage_rule_details[i].rate_per == "Month":
-                    if wage_rule.wage_rule_details[i].wage_days == "Fixed": # new changes
-                        rate= round(wage_rule.wage_rule_details[i].rate / wage_rule.wage_rule_details[i].total_wage_days, 2)
-                    else:
-                        rate= round(wage_rule.wage_rule_details[i].rate / total_days, 2)
+                    rate= round(wage_rule.wage_rule_details[i].rate / wage_rule.wage_rule_details[i].total_duties, 2)
                 else: rate= round(wage_rule.wage_rule_details[i].rate, 2)
         return rate, wage_rule_rev_name
 
@@ -2015,10 +2013,7 @@ def get_price(salary_structure, wage_rule_rev_name, start_date, end_date):
     for i in range(0, len(wage_rule.wage_rule_details)):
         if getdate(wage_rule.wage_rule_details[i].from_date) <= getdate(start_date) and getdate(wage_rule.wage_rule_details[i].to_date) >= getdate(end_date):
             if wage_rule.wage_rule_details[i].rate_per == "Month":
-                if wage_rule.wage_rule_details[i].wage_days == "Fixed": # new changes
-                    rate= round(wage_rule.wage_rule_details[i].rate / wage_rule.wage_rule_details[i].total_wage_days, 2)
-                else:
-                    rate= round(wage_rule.wage_rule_details[i].rate / total_days, 2)
+                rate= round(wage_rule.wage_rule_details[i].rate / wage_rule.wage_rule_details[i].total_duties, 2)
             else: rate= round(wage_rule.wage_rule_details[i].rate, 2)
     return rate
 
