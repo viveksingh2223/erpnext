@@ -1357,7 +1357,7 @@ class SalesInvoice(SellingController):
             if getdate(wage_rule.wage_rule_details[i].from_date) <= getdate(start_date) and getdate(wage_rule.wage_rule_details[i].to_date) >= getdate(end_date):
                 wage_rule_rev_name= wage_rule.wage_rule_details[i].name
                 if wage_rule.wage_rule_details[i].rate_per == "Month":
-                    rate= round(wage_rule.wage_rule_details[i].rate / wage_rule.wage_rule_details[i].total_duties, 2)
+                    rate= round(wage_rule.wage_rule_details[i].rate / wage_rule.wage_rule_details[i].number_of_duties, 2)
                 else: rate= round(wage_rule.wage_rule_details[i].rate, 2)
         return rate, wage_rule_rev_name
 
