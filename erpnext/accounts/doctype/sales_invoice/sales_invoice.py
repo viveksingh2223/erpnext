@@ -179,7 +179,8 @@ class SalesInvoice(SellingController):
     def before_save(self):
         set_account_for_mode_of_payment(self)
 
-    def before_submit(self):
+    ############################ Custom YTPL START#####################################
+    def add_service_charges(self, period):
         service_charges= 0.0
         if len(self.items) > 0:
             for item in self.items:
@@ -187,23 +188,26 @@ class SalesInvoice(SellingController):
                     contract_doc= frappe.get_doc('Site Contract', item.contract)
                     if contract_doc.is_service_charges == 1:
                         if contract_doc.mode_of_service_charges == 'Percentage':
-                            service_charges+= (item.amount * contract_doc.service_charges) / 100
+                            service_charges+= ((item.qty * item.rate) * contract_doc.service_charges) / 100
                         else:
                             service_charges+= contract_doc.service_charges
             if service_charges > 0.0:
-                if self.company == 'Security & Personnel Services Pvt. Ltd.':
-                    self.append('taxes', {"charge_type": "Actual", "account_head": "Service Charges - SPS", "description": "Service Charges", "amount": service_charges})
-                    calculate_taxes_and_totals(self)
-                elif self.company == 'Metro Facility Services':
-                    si_doc.append('taxes', {"charge_type": "Actual", "account_head": "Service Charges - MFS", "description": "Service Charges", "amount": service_charges})
-                    calculate_taxes_and_totals(self)
-                elif self.company == 'Falcon Facility Services':
-                    self.append('taxes', {"charge_type": "Actual", "account_head": "Service Charges - FFS", "description": "Service Charges", "amount": service_charges})
-                    calculate_taxes_and_totals(self)
-                elif self.company == 'Sukhi Facility Services Pvt. Ltd.':
-                    self.append('taxes', {"charge_type": "Actual", "account_head": "Service Charges - SFS", "description": "Service Charges", "amount": service_charges})
-                    calculate_taxes_and_totals(self)
-                else: pass
+                company_income_acount, cost_center= frappe.db.get_value('Company', self.company, ['default_income_account', 'cost_center'])
+                self.append('items',{   'rate': float(service_charges),
+                                            'price_list_rate': float(service_charges),
+                                            'item_code': "Service Charges",
+                                            'item_name': "Service Charges",
+                                            'description': "Service Charges",
+                                            'uom': 'Nos',
+                                            'qty': 1,
+                                            'item_from_date': period.start_date,
+                                            'item_to_date': period.end_date,
+                                            'income_account': company_income_acount,
+                                            'cost_center': cost_center
+                                        }
+                                )    
+            else: pass
+    ############################ Custom YTPL END#####################################
                  
     def on_submit(self):
         self.validate_pos_paid_amount()
@@ -1340,6 +1344,7 @@ class SalesInvoice(SellingController):
                                             'cost_center': cost_center
                                         }
                                 )
+        self.add_service_charges(period)
         return "Item Inserted Successfully" 
 
     def get_price(self, salary_structure, wage_rule_rev_name, start_date, end_date):
@@ -1405,6 +1410,8 @@ class SalesInvoice(SellingController):
                             )
         else:
             frappe.throw("No Data Found For Selected Contract")
+        period= {'from_date': period_from_date, 'to_date': period_to_date}
+        self.add_service_charges(period)
         return "Item Inserted Successfully"
 
     def rate_revision_si(self, ref_si,item_code, frm_dt,to_dt):
@@ -1499,10 +1506,11 @@ class SalesInvoice(SellingController):
                                                         'ref_sales_invoice': prev_bill.name,
                                                         'ref_invoice_rate': prev_si_items.rate
                                                         }
-                                                        ) 
-
+                                                        )
                         else: frappe.throw(_("Wage Structure not linked."))
                     pass
+                period= {'from_date': self.items[0]['item_from_date'], 'to_date': self.items[0]['item_to_date']} 
+                self.add_service_charges(period)
             if not si_items_row : frappe.msgprint(_("Rate Diffrence Not Found"))
         else: frappe.throw(_("Bill not generated after '{0}' for Customer : {1}").format(self.arrears_bill_from, self.customer))
         return "Item Fetched"
@@ -1545,6 +1553,8 @@ class SalesInvoice(SellingController):
                                                             'income_account': company_income_acount,
                                                             'cost_center': cost_center,
                                                             })
+        period= {'from_date': self.items[0]['item_from_date'], 'to_date': self.items[0]['item_to_date']} 
+        self.add_service_charges(period)
         return "Done"
     def get_draft_bill(self):
         data= frappe.db.sql("""select distinct sii.attendance from `tabSales Invoice` si inner join `tabSales Invoice Item` sii 
@@ -1943,6 +1953,36 @@ def auto_invoice_creation(billing_period, customer= None):
     else: msg= "No Record Found For Billing"
     return msg
 
+def add_service_charges(doc):
+    service_charges= 0.0
+    if len(doc.items) > 0:
+        for item in doc.items:
+            if item.contract:
+                contract_doc= frappe.get_doc('Site Contract', item.contract)
+                if contract_doc.is_service_charges == 1:
+                    if contract_doc.mode_of_service_charges == 'Percentage':
+                        service_charges+= (item.amount * contract_doc.service_charges) / 100
+                    else:
+                        service_charges+= contract_doc.service_charges
+        if service_charges > 0.0:
+            company_income_acount, cost_center= frappe.db.get_value('Company', doc.company, ['default_income_account', 'cost_center'])
+            doc.append('items',{    'rate': float(service_charges),
+                                    'price_list_rate': float(service_charges),
+                                    'item_code': "Service Charges",
+                                    'item_name': "Service Charges",
+                                    'description': "Service Charges",
+                                    'uom': 'Nos',
+                                    'qty': 1,
+                                    'item_from_date': doc.si_from_date,
+                                    'item_to_date': doc.si_to_date,
+                                    'income_account': company_income_acount,
+                                    'cost_center': cost_center
+                                    }
+                            )
+    else: pass
+    return doc
+    
+
 def get_customer_address(customer):
     #address= get_default_address('Customer', customer)
     address= get_default_address('Business Unit', customer)
@@ -2080,6 +2120,7 @@ def attendance_wise_invoicing(customer, billing_period, pointer):
             else: pass
         else: pass
         my_pointer= my_pointer + 1
+        add_service_charges(si_doc)
         si_doc.save()
     return my_pointer
 
@@ -2163,6 +2204,7 @@ def customer_or_state_wise_invoicing(customer, billing_period, pointer):
             calculate_taxes_and_totals(si_doc)
         else:pass
     else: pass
+    add_service_charges(si_doc) 
     si_doc.save()
     return pointer + 1
 
@@ -2219,6 +2261,7 @@ def standard_invoicing(customer, billing_period, pointer):
                         )
                 #address= get_customer_address(data["site"]) # address display pending
                 address= get_customer_address(data["site"]) if get_customer_address(data["site"]) is not None else get_customer_address(customer.customer_code)# address display pending
+            add_service_charges(si_doc)
             si_doc.company= bill_data[0]["company"]
             if address and address.gst_state != None:
                 if bill_data[0]["company"]  == 'Security & Personnel Services Pvt. Ltd.':
@@ -2306,6 +2349,7 @@ def po_wise_billing(customer, billing_period, pointer):
                                 }
             )
     address= get_customer_address(customer.customer_code)# address display pending
+    add_service_charges(si_doc)
     si_doc.company= bill_data[0]["company"]
     if address and address.gst_state != None:
         if bill_data[0]["company"] == 'Security & Personnel Services Pvt. Ltd.':
