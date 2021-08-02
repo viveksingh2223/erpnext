@@ -1306,17 +1306,24 @@ class SalesInvoice(SellingController):
         if att_list:
             att_data= None
             if len(att_list) > 1:
-                att_data = frappe.db.sql("""select atd.work_type, sum(atd.bill_duty) as total_bill_duty, 
-                                        att.include_relieving_charges, atd.wage_rule, att.name,  
-                                        atd.wage_rule_details, att.contract, att.site, att.site_name, att.weekly_off_included, att.company 
-                                        from `tabPeople Attendance` att inner join `tabAttendance Details` atd on atd.parent= att.name 
-                                        where att.name in %s group by att.name, atd.work_type;"""%(str(tuple(att_list))), as_dict= True)
+                #att_data = frappe.db.sql("""select atd.work_type, sum(atd.bill_duty) as total_bill_duty, 
+                #                        att.include_relieving_charges, atd.wage_rule, att.name,  
+                #                        atd.wage_rule_details, att.contract, att.site, att.site_name, att.weekly_off_included, att.company 
+                #                        from `tabPeople Attendance` att inner join `tabAttendance Details` atd on atd.parent= att.name 
+                #                        where att.name in %s group by att.name, atd.work_type;"""%(str(tuple(att_list))), as_dict= True)
+                att_data = frappe.db.sql("""select atd.work_type, sum(atd.bill_duty) as total_bill_duty,  ctd.quantity, 
+                                            att.include_relieving_charges, atd.wage_rule, att.name, atd.wage_rule_details, att.contract, 
+                                            att.site, att.site_name, att.weekly_off_included, att.company  from `tabPeople Attendance` att  
+                                            inner join `tabAttendance Details` atd on atd.parent= att.name 
+                                            inner join `tabContract Details` ctd on att.contract= ctd.parent and atd.work_type= ctd.work_type 
+                                            where att.name in %s group by att.name, atd.work_type;"""%(str(tuple(att_list))), as_dict= True)
             else:
-                att_data = frappe.db.sql("""select atd.work_type, sum(atd.bill_duty) as total_bill_duty, 
-                                        att.include_relieving_charges, atd.wage_rule, att.name,  
-                                        atd.wage_rule_details, att.contract, att.site, att.site_name, att.weekly_off_included, att.company 
-                                        from `tabPeople Attendance` att inner join `tabAttendance Details` atd on atd.parent= att.name 
-                                        where att.name=  '%s' group by att.name, atd.work_type;"""%(str(att_list[0])), as_dict= True)
+                att_data = frappe.db.sql("""select atd.work_type, sum(atd.bill_duty) as total_bill_duty,  ctd.quantity, 
+                                            att.include_relieving_charges, atd.wage_rule, att.name, atd.wage_rule_details, att.contract, 
+                                            att.site, att.site_name, att.weekly_off_included, att.company  from `tabPeople Attendance` att  
+                                            inner join `tabAttendance Details` atd on atd.parent= att.name 
+                                            inner join `tabContract Details` ctd on att.contract= ctd.parent and atd.work_type= ctd.work_type 
+                                            where att.name= '%s' group by att.name, atd.work_type;"""%(str(att_list[0])), as_dict= True)
 
             company_income_acount, cost_center= frappe.db.get_value('Company', att_data[0]['company'], ['default_income_account', 'cost_center'])
             sunday_count= self.get_sunday_count(period.start_date, period.end_date, period.name)
@@ -1334,6 +1341,7 @@ class SalesInvoice(SellingController):
                                             'uom': 'Nos',
                                             'qty': self.get_total_qty(row.total_bill_duty, sunday_count, contract_doc, row.work_type), 
                                             'contract': row.contract,
+                                            'contract_quantity': row.quantity,
                                             'site': row.site,
                                             'attendance': row.name,
                                             'salary_structure': row.wage_rule,
@@ -1396,6 +1404,7 @@ class SalesInvoice(SellingController):
                                         'uom': 'Nos',
                                         'qty': int(row.quantity) * total_days,
                                         'contract': row.contract,
+                                        'contract_quantity': row.quantity,
                                         'site': row.site,
                                         'salary_structure': row.wage_rule,
                                         'ss_revision_name': wage_rule_details,
@@ -1492,6 +1501,7 @@ class SalesInvoice(SellingController):
                                                         'uom': 'Nos',
                                                         'qty': prev_si_items.qty,
                                                         'contract': prev_si_items.contract,
+                                                        'contract_quantity': prev_si_items.contract_quantity,
                                                         'site': prev_si_items.site,
                                                         'attendance': prev_si_items.attendance,
                                                         'salary_structure': prev_si_items.salary_structure,
@@ -1542,6 +1552,7 @@ class SalesInvoice(SellingController):
                                                             'description': si_doc.items[i].item_code,
                                                             'uom': 'Nos',
                                                             'contract':si_doc.items[i].contract,
+                                                            'contract_quantity':si_doc.items[i].contract_quantity,
                                                             'attendance':attd_doc[i]["name"],
                                                             'salary_structure':si_doc.items[i].salary_structure,
                                                             'ss_revision_name':si_doc.items[i].ss_revision_name,
@@ -1997,11 +2008,12 @@ def get_customer_attendances(billing_period, customer):
     return all_attendance
 
 def get_attendance_details(attendance_name):
-    attendance_details= frappe.db.sql("""   select atd.work_type, sum(atd.bill_duty) as total_bill_duty,
-                                            att.include_relieving_charges, atd.wage_rule,
-                                            atd.wage_rule_details, att.contract, att.company, att.site, att.site_name, att.weekly_off_included
-                                            from `tabPeople Attendance` att inner join `tabAttendance Details` atd on atd.parent= att.name
-                                            where att.name= '%s' group by atd.work_type; """ %(attendance_name), as_dict= True)
+    attendance_details= frappe.db.sql("""select atd.work_type, sum(atd.bill_duty) as total_bill_duty,  ctd.quantity, 
+                                        att.include_relieving_charges, atd.wage_rule, att.name, atd.wage_rule_details, att.contract, 
+                                        att.site, att.site_name, att.weekly_off_included, att.company  from `tabPeople Attendance` att  
+                                        inner join `tabAttendance Details` atd on atd.parent= att.name 
+                                        inner join `tabContract Details` ctd on att.contract= ctd.parent and atd.work_type= ctd.work_type 
+                                        where att.name= '%s' group by att.name, atd.work_type""" %(attendance_name), as_dict= True)
     return attendance_details
 
 def get_price(salary_structure, wage_rule_rev_name, start_date, end_date):
@@ -2066,6 +2078,7 @@ def attendance_wise_invoicing(customer, billing_period, pointer):
                                     "ss_revision_name":data["wage_rule_details"],
                                     "ss_revision_rate": rate,
                                     "contract": data["contract"],
+                                    "contract_quantity": data["quantity"],
                                     "site": data["site"],
                                     "site_name": data["site_name"],
                                     "attendance": att_data[i]["name"],
@@ -2131,12 +2144,13 @@ def customer_or_state_wise_invoicing(customer, billing_period, pointer):
     si_doc.si_from_date= att_data[0]["start_date"]
     si_doc.si_to_date= att_data[0]["end_date"]
     #si_doc.customer_name= customer.customer_code
-    bill_data= frappe.db.sql("""select atd.work_type, sum(atd.bill_duty) as total_bill_duty, atd.wage_rule, att.include_relieving_charges,
-                            atd.wage_rule_details, att.contract, att.site, att.site_name, att.name, att.weekly_off_included
-                            from `tabPeople Attendance` att 
-                            inner join `tabAttendance Details` atd on atd.parent= att.name
-                            where att.customer= '%s' and att.attendance_period= '%s'
-                            and att.status= 'To Bill' group by atd.work_type, att.name;""" %(customer.name, billing_period), as_dict= True)
+    bill_data= frappe.db.sql("""select atd.work_type, sum(atd.bill_duty) as total_bill_duty, ctd.quantity, atd.wage_rule, att.include_relieving_charges,
+                                atd.wage_rule_details, att.contract, att.site, att.site_name, att.name, att.weekly_off_included
+                                from `tabPeople Attendance` att 
+                                inner join `tabAttendance Details` atd on atd.parent= att.name
+                                inner join `tabContract Details` ctd on att.contract= ctd.parent and atd.work_type= ctd.work_type
+                                where att.customer= '%s' and att.attendance_period= '%s'
+                                and att.status= 'To Bill' group by atd.work_type, att.name;""" %(customer.name, billing_period), as_dict= True)
 
     sunday_count= get_sunday_count(att_data[0]["start_date"], att_data[0]["end_date"], billing_period)
     for data in bill_data:
@@ -2152,6 +2166,7 @@ def customer_or_state_wise_invoicing(customer, billing_period, pointer):
                                     "ss_revision_name":data["wage_rule_details"],
                                     "ss_revision_rate": rate,
                                     "contract": data["contract"],
+                                    "contract_quantity": data["quantity"],
                                     "site": data["site"],
                                     "site_name": data["site_name"],
                                     "attendance": data["name"],
@@ -2248,6 +2263,7 @@ def standard_invoicing(customer, billing_period, pointer):
                                         "salary_structure":data["wage_rule"],
                                         "ss_revision_rate": rate,
                                         "contract": data["contract"],
+                                        "contract_quantity": data["quantity"],
                                         "site": data["site"],
                                         "site_name": data["site_name"],
                                         "item_from_date": period.start_date,
@@ -2337,6 +2353,7 @@ def po_wise_billing(customer, billing_period, pointer):
                                 "salary_structure":data["wage_rule"],
                                 "ss_revision_rate": rate,
                                 "contract": data["contract"],
+                                "contract_quantity": data["quantity"],
                                 "site": data["site"],
                                 "site_name": data["site_name"],
                                 "item_from_date": period.start_date,
