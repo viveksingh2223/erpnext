@@ -58,19 +58,21 @@ class SalesInvoice(SellingController):
         from erpnext.accounts.utils import get_fiscal_year
         from frappe.utils import nowdate, formatdate
 
-        current_fiscal_year = get_fiscal_year(self.posting_date, company=erpnext.get_default_company(), as_dict=True)
-        fiscal_year = formatdate(current_fiscal_year.year_start_date, "YY") + "/" + formatdate(current_fiscal_year.year_end_date, "YY")
+        #current_fiscal_year = get_fiscal_year(self.posting_date, company=erpnext.get_default_company(), as_dict=True)
+        #fiscal_year = formatdate(current_fiscal_year.year_start_date, "YY") + "/" + formatdate(current_fiscal_year.year_end_date, "YY")
 
-        if self.custom_bill_no:
-            #if self.bill_number and len(str(self.bill_number)) == 5 and int(self.bill_number):
-            if self.bill_number and len(str(self.bill_number)) >= 5 and int(self.bill_number):
-                custom_naming = "SI-" + fiscal_year + "-" + self.bill_number
-                self.name = custom_naming
-            else:
-                frappe.throw(_('''Bill Number should be 5 digit number'''))
-        else:
-            custom_naming = "SI-" + fiscal_year + "-.#####"
-            self.naming_series = custom_naming
+        #if self.custom_bill_no:
+        #    #if self.bill_number and len(str(self.bill_number)) == 5 and int(self.bill_number):
+        #    if self.bill_number and len(str(self.bill_number)) >= 5 and int(self.bill_number):
+        #        custom_naming = "SI-" + fiscal_year + "-" + self.bill_number
+        #        self.name = custom_naming
+        #    else:
+        #        frappe.throw(_('''Bill Number should be 5 digit number'''))
+        #else:
+        #    last_number= frappe.db.sql("""select name from `tabSales Invoice` where name like '%s%%'"""%("SI-" + fiscal_year), as_dict= True)
+        #    print(last_number)
+        #    custom_naming = "SI-" + fiscal_year + "-.#####"
+        #    self.naming_series = custom_naming
 
     ################################ Custom YTPL ############################
 
@@ -2054,8 +2056,9 @@ def attendance_wise_invoicing(customer, billing_period, pointer):
         bill_data= get_attendance_details(att_data[i]["name"])
         si_doc= frappe.new_doc("Sales Invoice")
         si_doc.billing_type= "Attendance"
-        si_doc.custom_bill_no= 1
-        si_doc.bill_number= str(my_pointer)
+        #si_doc.custom_bill_no= 1
+        si_doc.custom_bill_no= 0
+        #si_doc.bill_number= str(my_pointer)
         si_doc.billing_period= billing_period
         si_doc.customer= customer.name
         si_doc.si_from_date= att_data[0]["start_date"]
@@ -2137,8 +2140,9 @@ def customer_or_state_wise_invoicing(customer, billing_period, pointer):
     att_data= get_customer_attendances(billing_period, customer.name)
     si_doc= frappe.new_doc("Sales Invoice")
     si_doc.billing_type= "Attendance"
-    si_doc.custom_bill_no= 1
-    si_doc.bill_number= str(pointer)
+    #si_doc.custom_bill_no= 1
+    si_doc.custom_bill_no= 0
+    #si_doc.bill_number= str(pointer)
     si_doc.billing_period= billing_period
     si_doc.customer= customer.name
     si_doc.si_from_date= att_data[0]["start_date"]
@@ -2235,8 +2239,9 @@ def standard_invoicing(customer, billing_period, pointer):
         for i in range(0, len(all_contract)):
             si_doc= frappe.new_doc("Sales Invoice")
             si_doc.billing_type= "Standard"
-            si_doc.custom_bill_no= 1
-            si_doc.bill_number= str(my_pointer)
+            #si_doc.custom_bill_no= 1
+            si_doc.custom_bill_no= 0
+            #si_doc.bill_number= str(my_pointer)
             si_doc.billing_period= billing_period
             si_doc.customer= customer.name
             si_doc.si_from_date= period.start_date
