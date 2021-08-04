@@ -58,20 +58,20 @@ class SalesInvoice(SellingController):
         from erpnext.accounts.utils import get_fiscal_year
         from frappe.utils import nowdate, formatdate
 
-        #current_fiscal_year = get_fiscal_year(self.posting_date, company=erpnext.get_default_company(), as_dict=True)
-        #fiscal_year = formatdate(current_fiscal_year.year_start_date, "YY") + "/" + formatdate(current_fiscal_year.year_end_date, "YY")
+        current_fiscal_year = get_fiscal_year(self.posting_date, company=erpnext.get_default_company(), as_dict=True)
+        fiscal_year = formatdate(current_fiscal_year.year_start_date, "YY") + "/" + formatdate(current_fiscal_year.year_end_date, "YY")
 
-        #if self.custom_bill_no:
-        #    #if self.bill_number and len(str(self.bill_number)) == 5 and int(self.bill_number):
-        #    if self.bill_number and len(str(self.bill_number)) >= 5 and int(self.bill_number):
-        #        custom_naming = "SI-" + fiscal_year + "-" + self.bill_number
-        #        self.name = custom_naming
-        #    else:
-        #        frappe.throw(_('''Bill Number should be 5 digit number'''))
+        if self.custom_bill_no:
+            #if self.bill_number and len(str(self.bill_number)) == 5 and int(self.bill_number):
+            if self.bill_number and len(str(self.bill_number)) == 5 and int(self.bill_number):
+                custom_naming = "SI-" + fiscal_year + "-" + self.bill_number
+                self.name = custom_naming
+            else:
+                frappe.throw(_('''Bill Number should be 5 digit number'''))
         #else:
         #    last_number= frappe.db.sql("""select name from `tabSales Invoice` where name like '%s%%'"""%("SI-" + fiscal_year), as_dict= True)
         #    print(last_number)
-        #    custom_naming = "SI-" + fiscal_year + "-.#####"
+        #    custom_naming = "SI-" + fiscal_year + "-.######"
         #    self.naming_series = custom_naming
 
     ################################ Custom YTPL ############################
@@ -180,6 +180,7 @@ class SalesInvoice(SellingController):
 
     def before_save(self):
         set_account_for_mode_of_payment(self)
+        self.posting_date= get_posting_date(str(self.si_from_date)) 
 
     ############################ Custom YTPL START#####################################
     def add_service_charges(self, period):
@@ -1964,6 +1965,27 @@ def auto_invoice_creation(billing_period, customer= None):
     else: msg= "No Record Found For Billing"
     return msg
 
+
+def get_draft_bill(customer, billing_period):
+    data= frappe.db.sql("""select distinct sii.attendance from `tabSales Invoice` si inner join `tabSales Invoice Item` sii 
+                            on si.name= sii.parent where si.docstatus= 0 
+                            and si.billing_period= '%s' and si.customer= '%s' and sii.attendance is not null"""%(billing_period, customer), as_dict= True)
+    result= []
+    if len(data) > 0:
+        for row in data:
+            result.append(row.attendance)
+    return result
+
+def get_draft_bill_contract_wise(customer, billing_period):
+    data= frappe.db.sql("""select distinct sii.contract from `tabSales Invoice` si inner join `tabSales Invoice Item` sii 
+                            on si.name= sii.parent where si.docstatus= 0 and si.billing_period= '%s' and si.customer= '%s' and 
+                            sii.contract is not null"""%(billing_period, customer), as_dict= True)
+    result= []
+    if len(data) > 0:
+        for row in data:
+            result.append(row.contract)
+    return result        
+
 def add_service_charges(doc):
     service_charges= 0.0
     if len(doc.items) > 0:
@@ -2004,9 +2026,21 @@ def get_customer_address(customer):
     return address_details
 
 def get_customer_attendances(billing_period, customer):
-    all_attendance= frappe.db.sql(""" select name, start_date, end_date, company from `tabPeople Attendance`
-                                        where attendance_period= '%s' and status= 'To Bill'
-                                        and customer= '%s' """ %(billing_period, customer), as_dict= True)
+    draft_bill= get_draft_bill(billing_period, customer)
+    all_attendance= []       
+    if len(draft_bill) > 0:
+        if len(draft_bill) == 1:
+            all_attendance= frappe.db.sql(""" select name, start_date, end_date, company from `tabPeople Attendance`
+                                                where attendance_period= '%s' and status= 'To Bill'
+                                                and customer= '%s' and name != '%s'""" %(billing_period, customer, draft_bill[0]), as_dict= True)
+        else:
+            all_attendance= frappe.db.sql(""" select name, start_date, end_date, company from `tabPeople Attendance` 
+                                                where attendance_period= '%s' and status= 'To Bill' 
+                                                and customer= '%s' and name in %s""" %(billing_period, customer, str(tuple(draft_bill))), as_dict= True)
+    else:
+        all_attendance= frappe.db.sql(""" select name, start_date, end_date, company from `tabPeople Attendance` 
+                                            where attendance_period= '%s' and status= 'To Bill' 
+                                            and customer= '%s'""" %(billing_period, customer), as_dict= True)
     return all_attendance
 
 def get_attendance_details(attendance_name):
@@ -2048,10 +2082,28 @@ def get_total_qty(total_bill_duty, sunday_count, contract, work_type):
     else: total_qty= bill_duty
     return total_qty
 
+def get_posting_date(start_date):
+    import datetime
+    start_date_day= datetime.datetime.strptime(start_date, "%Y-%m-%d").day
+    start_date_month= datetime.datetime.strptime(start_date, "%Y-%m-%d").month
+    start_date_year= datetime.datetime.strptime(start_date, "%Y-%m-%d").year
+    next_year= datetime.datetime.strptime(start_date, "%Y-%m-%d").year + 1
+    next_month= datetime.datetime.strptime(start_date, "%Y-%m-%d").month + 1
+    posting_date= ""
+    if start_date_day == 1:
+        if next_month == 13:
+            posting_date= str(next_year)+"-"+"01"+"-"+"03"
+        else:
+            posting_date= str(start_date_year)+"-"+("0" if next_month < 10 else "")+str(next_month)+"-"+"03"
+    else:
+        posting_date= str(start_date_year)+"-"+("0" if start_date_month < 10 else "")+str(start_date_month)+"-"+"24"
+    return posting_date
+
 def attendance_wise_invoicing(customer, billing_period, pointer):
     #address= get_customer_address(customer.name) # address display pending
     att_data= get_customer_attendances(billing_period, customer.name)
     my_pointer= pointer
+    posting_date= get_posting_date(str(att_data[0]["start_date"]))
     for i in range(0, len(att_data)):
         bill_data= get_attendance_details(att_data[i]["name"])
         si_doc= frappe.new_doc("Sales Invoice")
@@ -2061,6 +2113,7 @@ def attendance_wise_invoicing(customer, billing_period, pointer):
         #si_doc.bill_number= str(my_pointer)
         si_doc.billing_period= billing_period
         si_doc.customer= customer.name
+        si_doc.posting_date= posting_date
         si_doc.si_from_date= att_data[0]["start_date"]
         si_doc.si_to_date= att_data[0]["end_date"]
         #si_doc.customer_name= customer.customer_code   
@@ -2138,23 +2191,29 @@ def attendance_wise_invoicing(customer, billing_period, pointer):
 def customer_or_state_wise_invoicing(customer, billing_period, pointer):
     address= get_customer_address(customer.customer_code) # address display pending
     att_data= get_customer_attendances(billing_period, customer.name)
+    posting_date= get_posting_date(str(att_data[0]["start_date"]))
     si_doc= frappe.new_doc("Sales Invoice")
+    print(si_doc.as_dict())
     si_doc.billing_type= "Attendance"
     #si_doc.custom_bill_no= 1
     si_doc.custom_bill_no= 0
     #si_doc.bill_number= str(pointer)
     si_doc.billing_period= billing_period
     si_doc.customer= customer.name
+    si_doc.posting_date= posting_date
     si_doc.si_from_date= att_data[0]["start_date"]
     si_doc.si_to_date= att_data[0]["end_date"]
     #si_doc.customer_name= customer.customer_code
-    bill_data= frappe.db.sql("""select atd.work_type, sum(atd.bill_duty) as total_bill_duty, ctd.quantity, atd.wage_rule, att.include_relieving_charges,
-                                atd.wage_rule_details, att.contract, att.site, att.site_name, att.name, att.weekly_off_included
+    bill_data= frappe.db.sql("""select atd.work_type, sum(atd.bill_duty) as total_bill_duty, ctd.quantity, atd.wage_rule, att.include_relieving_charges, 
+                                atd.wage_rule_details, att.contract, att.site, att.site_name, att.name, att.weekly_off_included 
                                 from `tabPeople Attendance` att 
-                                inner join `tabAttendance Details` atd on atd.parent= att.name
+                                inner join `tabAttendance Details` atd on atd.parent= att.name 
                                 inner join `tabContract Details` ctd on att.contract= ctd.parent and atd.work_type= ctd.work_type
-                                where att.customer= '%s' and att.attendance_period= '%s'
-                                and att.status= 'To Bill' group by atd.work_type, att.name;""" %(customer.name, billing_period), as_dict= True)
+                                where att.customer= '%s' and att.attendance_period= '%s' 
+                                and att.status= 'To Bill' and att.name not in(select distinct sii.attendance from `tabSales Invoice` si inner join `tabSales Invoice Item` sii 
+                                on si.name= sii.parent where si.docstatus= 0 
+                                and si.billing_period= '%s' and si.customer= '%s' and sii.attendance is not null)
+                                group by atd.work_type, att.name ;"""%(customer.name, billing_period, billing_period, customer.name), as_dict= True)
 
     sunday_count= get_sunday_count(att_data[0]["start_date"], att_data[0]["end_date"], billing_period)
     for data in bill_data:
@@ -2222,16 +2281,21 @@ def customer_or_state_wise_invoicing(customer, billing_period, pointer):
     si_doc.save()
     return pointer + 1
 
+
+
 def standard_invoicing(customer, billing_period, pointer):
     from frappe.utils import date_diff
     period= frappe.get_doc("Salary Payroll Period", billing_period)
+    billed_contract= get_draft_bill_contract_wise(customer.name, billing_period)
+    posting_date= get_posting_date(str(period.start_date))
     address= get_customer_address(customer.name) # address display pending
     all_contract= frappe.get_list("Site Contract", filters= [
                                                             ['party_name', '=',  customer.name],
                                                             ['is_standard', '=', 1],
                                                             ['start_date', '<=', period.start_date],
                                                             ['end_date', '>=', period.end_date],
-                                                            ['docstatus', '=', 1]
+                                                            ['docstatus', '=', 1],
+                                                            ['name', 'not in', billed_contract]
                                                         ],
                                             fields= ['name'])
     if len(all_contract) > 0:
@@ -2244,6 +2308,7 @@ def standard_invoicing(customer, billing_period, pointer):
             #si_doc.bill_number= str(my_pointer)
             si_doc.billing_period= billing_period
             si_doc.customer= customer.name
+            si_doc.posting_date= posting_date
             si_doc.si_from_date= period.start_date
             si_doc.si_to_date= period.end_date
             #si_doc.customer_name= customer.customer_code
@@ -2322,24 +2387,28 @@ def standard_invoicing(customer, billing_period, pointer):
 
 def po_wise_billing(customer, billing_period, pointer):
     from frappe.utils import date_diff
+    
     period= frappe.get_doc("Salary Payroll Period", billing_period)
+    posting_date= get_posting_date(str(period.start_date))
     my_pointer= pointer
     si_doc= frappe.new_doc("Sales Invoice")
     si_doc.billing_type= "Standard"
     si_doc.bill_number= str(my_pointer)
     si_doc.billing_period= billing_period
     si_doc.customer= customer.name
+    si_doc.posting_date= posting_date
     si_doc.si_from_date= period.start_date
     si_doc.si_to_date= period.end_date
-    bill_data= frappe.db.sql("""select c.name as contract, c.party_name, c.company, c.bu_site as site, c.bu_site_name as site_name,
+    bill_data= frappe.db.sql(""" select c.name as contract, c.party_name, c.company, c.bu_site as site, c.bu_site_name as site_name,
                                 sum(cd.quantity) as quantity, cd.work_type, cd.wage_rule, c.start_date, c.end_date, cd.from_date, cd.to_date
                                 from `tabSite Contract` c
                                 inner join `tabContract Details` cd on c.name= cd.parent
-                                where c.party_name= '%s'
+                                where c.party_name= '%s' and c.name not in(select distinct sii.contract from `tabSales Invoice` si inner join `tabSales Invoice Item` sii 
+                                on si.name= sii.parent where si.docstatus= 0 and si.billing_period= '%s' and si.customer= '%s' and 
+                                sii.contract is not null)
                                 and c.start_date <= '%s' and c.end_date >= '%s'
                                 and cd.from_date <= '%s' and cd.to_date >= '%s' and c.docstatus=1
-                                group by c.bu_site, cd.work_type;""" %(customer.name, period.start_date, period.end_date, period.start_date, period.end_date), as_dict= True
-                                )
+                                group by c.bu_site, cd.work_type;""" %(customer.name, billing_period, customer.name, period.start_date, period.end_date, period.start_date, period.end_date), as_dict= True)
     total_days= float(date_diff(period.end_date, period.start_date)) + 1.0
     for data in bill_data:
         wage_rule= frappe.get_doc("Wage Structure", data["wage_rule"])
