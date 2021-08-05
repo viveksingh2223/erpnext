@@ -211,8 +211,11 @@ class SalesInvoice(SellingController):
                                 )    
             else: pass
     ############################ Custom YTPL END#####################################
+    def before_submit(self):
+        self.posting_date= get_posting_date(str(self.si_from_date))
                  
     def on_submit(self):
+        self.posting_date= get_posting_date(str(self.si_from_date))
         self.validate_pos_paid_amount()
 
         if not self.auto_repeat:
@@ -472,7 +475,7 @@ class SalesInvoice(SellingController):
 
     def on_update(self):
         self.set_paid_amount()
-
+        self.posting_date= get_posting_date(str(self.si_from_date))
     def set_paid_amount(self):
         paid_amount = 0.0
         base_paid_amount = 0.0
