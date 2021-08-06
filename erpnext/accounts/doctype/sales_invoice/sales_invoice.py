@@ -1580,6 +1580,10 @@ class SalesInvoice(SellingController):
             for row in data:
                 result.append(row.attendance)
         return result
+    
+    def get_site_count(self):
+        data= frappe.db.sql("select distinct site_name from `tabSales Invoice Item` where parent= '%s'"%(self.name), as_dict= True)
+        return len(data)
     #################### CUSTOM YTPL END#######################################
 
 def booked_deferred_revenue():
