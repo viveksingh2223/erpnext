@@ -64,8 +64,9 @@ class SalesInvoice(SellingController):
         if self.custom_bill_no:
             #if self.bill_number and len(str(self.bill_number)) == 5 and int(self.bill_number):
             if self.bill_number and len(str(self.bill_number)) == 5 and int(self.bill_number):
-                custom_naming = "SI-" + fiscal_year + "-" + self.bill_number
+                custom_naming = "SI-" + fiscal_year + "-" + str(self.bill_number)
                 self.name = custom_naming
+                self.naming_series = custom_naming
             else:
                 frappe.throw(_('''Bill Number should be 5 digit number'''))
         #else:
