@@ -307,7 +307,10 @@ class SalesInvoice(SellingController):
 
     def before_cancel(self):
         self.update_time_sheet(None)
-        self.check_payroll_entry() ############## Custom YTPL CODE ####################
+        ############## Custom YTPL CODE START####################
+        if "Cancel And Delete Bill" not in frappe.get_roles(frappe.session.user):
+            self.check_payroll_entry() 
+        ############## Custom YTPL CODE END####################
     ####### YTPL CODE STRAT##################
     def check_payroll_entry(self):
         sales_invoice_contract_list= frappe.db.sql("""select name, payroll_process from `tabProcessed Payroll` 
@@ -326,7 +329,7 @@ class SalesInvoice(SellingController):
             for items in self.items:
                 if items.attendance:
                     frappe.db.set_value("People Attendance", items.attendance, "status", status, update_modified=update_modified)
-                if self.billing_period == 'Standard' and items.contract and items.site:
+                if self.billing_type == 'Standard' and items.contract and items.site:
                     attendance= frappe.db.sql("""select name from `tabPeople Attendance` where contract= '%s' and attendance_period= '%s'"""%(items.contract, self.billing_period), as_dict= True)
                     if len(attendance) > 0:
                         frappe.db.set_value("People Attendance", attendance[0]['name'], "status", status, update_modified=update_modified)
