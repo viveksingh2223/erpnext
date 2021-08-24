@@ -181,7 +181,7 @@ class SalesInvoice(SellingController):
 
     def before_save(self):
         set_account_for_mode_of_payment(self)
-        self.posting_date= get_posting_date(str(self.si_to_date)) 
+        self.posting_date= get_posting_date(str(self.si_from_date)) 
 
     ############################ Custom YTPL START#####################################
     def add_service_charges(self, period):
@@ -213,10 +213,10 @@ class SalesInvoice(SellingController):
             else: pass
     ############################ Custom YTPL END#####################################
     def before_submit(self):
-        self.posting_date= get_posting_date(str(self.si_to_date))
+        self.posting_date= get_posting_date(str(self.si_from_date))
                  
     def on_submit(self):
-        self.posting_date= get_posting_date(str(self.si_to_date))
+        self.posting_date= get_posting_date(str(self.si_from_date))
         self.validate_pos_paid_amount()
 
         if not self.auto_repeat:
@@ -479,7 +479,7 @@ class SalesInvoice(SellingController):
 
     def on_update(self):
         self.set_paid_amount()
-        self.posting_date= get_posting_date(str(self.si_to_date))
+        self.posting_date= get_posting_date(str(self.si_from_date))
     def set_paid_amount(self):
         paid_amount = 0.0
         base_paid_amount = 0.0
@@ -2103,18 +2103,21 @@ def get_posting_date(start_date):
     posting_date= ""
     if start_date_day == 1:
         if next_month == 13:
-            posting_date= str(next_year)+"-"+"01"+"-"+"03"
+            posting_date= str(next_year)+"-01-03"
         else:
             posting_date= str(start_date_year)+"-"+("0" if next_month < 10 else "")+str(next_month)+"-"+"03"
     else:
-        posting_date= str(start_date_year)+"-"+("0" if start_date_month < 10 else "")+str(start_date_month)+"-"+"24"
+        if next_month == 13:
+            posting_date= str(next_year)+"-01-24"
+        else:
+            posting_date= str(start_date_year)+"-"+("0" if next_month < 10 else "")+str(next_month)+"-"+"24"
     return posting_date
 
 def attendance_wise_invoicing(customer, billing_period, pointer):
     #address= get_customer_address(customer.name) # address display pending
     att_data= get_customer_attendances(billing_period, customer.name)
     my_pointer= pointer
-    posting_date= get_posting_date(str(att_data[0]["end_date"]))
+    posting_date= get_posting_date(str(att_data[0]["start_date"]))
     for i in range(0, len(att_data)):
         bill_data= get_attendance_details(att_data[i]["name"])
         si_doc= frappe.new_doc("Sales Invoice")
@@ -2202,7 +2205,7 @@ def attendance_wise_invoicing(customer, billing_period, pointer):
 def customer_or_state_wise_invoicing(customer, billing_period, pointer):
     address= get_customer_address(customer.customer_code) # address display pending
     att_data= get_customer_attendances(billing_period, customer.name)
-    posting_date= get_posting_date(str(att_data[0]["end_date"]))
+    posting_date= get_posting_date(str(att_data[0]["start_date"]))
     si_doc= frappe.new_doc("Sales Invoice")
     print(si_doc.as_dict())
     si_doc.billing_type= "Attendance"
@@ -2298,7 +2301,7 @@ def standard_invoicing(customer, billing_period, pointer):
     from frappe.utils import date_diff
     period= frappe.get_doc("Salary Payroll Period", billing_period)
     billed_contract= get_draft_bill_contract_wise(customer.name, billing_period)
-    posting_date= get_posting_date(str(period.end_date))
+    posting_date= get_posting_date(str(period.start_date))
     address= get_customer_address(customer.name) # address display pending
     all_contract= frappe.get_list("Site Contract", filters= [
                                                             ['party_name', '=',  customer.name],
@@ -2400,7 +2403,7 @@ def po_wise_billing(customer, billing_period, pointer):
     from frappe.utils import date_diff
     
     period= frappe.get_doc("Salary Payroll Period", billing_period)
-    posting_date= get_posting_date(str(period.end_date))
+    posting_date= get_posting_date(str(period.start_date))
     my_pointer= pointer
     si_doc= frappe.new_doc("Sales Invoice")
     si_doc.billing_type= "Standard"
