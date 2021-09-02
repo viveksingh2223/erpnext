@@ -223,6 +223,16 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
         me.frm.set_value('standard_bill', "");
         me.frm.set_value('site', "");
         me.frm.set_value('site_address_on_bill', 0);
+        if(cur_frm.doc.billing_period != undefined){
+            frappe.call({
+                method: "erpnext.accounts.doctype.sales_invoice.sales_invoice.get_posting_date",
+                args: {'start_date': cur_frm.doc.si_from_date},
+                callback:function(r){
+                    me.frm.set_value('posting_date', r.message);
+                    me.frm.set_value('due_date', frappe.datetime.add_days(r.message, 15))
+                }
+            })
+        }
 	},
 	/*************************** Custom YTPL*****************************/
 	sales_order_btn: function() {
@@ -411,7 +421,6 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
 			}, function() {
 				me.apply_pricing_rule();
 			});
-
 		if(this.frm.doc.customer) {
 			frappe.call({
 				"method": "erpnext.accounts.doctype.sales_invoice.sales_invoice.get_loyalty_programs",
@@ -448,6 +457,22 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
                 }
             }
 		}
+        if(cur_frm.doc.billing_period != undefined){
+            if (cur_frm.doc.posting_date == undefined){
+                frappe.call({
+                    method: "erpnext.accounts.doctype.sales_invoice.sales_invoice.get_posting_date",
+                    args: {'start_date': cur_frm.doc.si_from_date},
+                    callback:function(r){
+                        cur_frm.set_value('posting_date', r.message);
+                        cur_frm.set_value('due_date', frappe.datetime.add_days(r.message, 15))
+                    }
+                })
+            }
+            else{
+                cur_frm.set_value('posting_date', cur_frm.doc.posting_date);
+                cur_frm.set_value('due_date', frappe.datetime.add_days(r.message, 15))
+            }
+        }
 		/*************************** Custom YTPL*****************************/
 	},
 

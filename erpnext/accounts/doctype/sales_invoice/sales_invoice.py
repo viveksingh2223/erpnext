@@ -181,7 +181,11 @@ class SalesInvoice(SellingController):
 
     def before_save(self):
         set_account_for_mode_of_payment(self)
-        self.posting_date= get_posting_date(str(self.si_from_date)) 
+        if self.set_posting_time == 0:
+            self.posting_date= get_posting_date(str(self.si_from_date))
+        self.due_date= add_days(self.posting_date, 15)
+            
+           
 
     ############################ Custom YTPL START#####################################
     def add_service_charges(self, period):
@@ -213,10 +217,14 @@ class SalesInvoice(SellingController):
             else: pass
     ############################ Custom YTPL END#####################################
     def before_submit(self):
-        self.posting_date= get_posting_date(str(self.si_from_date))
+        if self.set_posting_time == 0:
+            self.posting_date= get_posting_date(str(self.si_from_date))
+        self.due_date= add_days(self.posting_date, 15)
                  
     def on_submit(self):
-        self.posting_date= get_posting_date(str(self.si_from_date))
+        if self.set_posting_time == 0:
+            self.posting_date= get_posting_date(str(self.si_from_date))
+        self.due_date= add_days(self.posting_date, 15)
         self.validate_pos_paid_amount()
 
         if not self.auto_repeat:
@@ -479,7 +487,10 @@ class SalesInvoice(SellingController):
 
     def on_update(self):
         self.set_paid_amount()
-        self.posting_date= get_posting_date(str(self.si_from_date))
+        if  self.set_posting_time == 0:
+            self.posting_date= get_posting_date(str(self.si_from_date))
+        self.due_date= add_days(self.posting_date, 15)
+
     def set_paid_amount(self):
         paid_amount = 0.0
         base_paid_amount = 0.0
@@ -1588,6 +1599,10 @@ class SalesInvoice(SellingController):
     def get_site_count(self):
         data= frappe.db.sql("select distinct site_name from `tabSales Invoice Item` where parent= '%s'"%(self.name), as_dict= True)
         return len(data)
+
+    def get_data_work_type_wise(self):
+        data= frappe.db.sql("""select item_code, item_name, sum(qty) as qty, rate, sum(amount), ss_revision_name from `tabSales Invoice Item` where parent= '%s' group by item_code, rate;"""%(self.name), as_dict= True)
+        return data
     #################### CUSTOM YTPL END#######################################
 
 def booked_deferred_revenue():
@@ -2071,10 +2086,11 @@ def get_price(salary_structure, wage_rule_rev_name, start_date, end_date):
     wage_rule= frappe.get_doc("Wage Structure", salary_structure)
     for i in range(0, len(wage_rule.wage_rule_details)):
         if getdate(wage_rule.wage_rule_details[i].from_date) <= getdate(start_date) and getdate(wage_rule.wage_rule_details[i].to_date) >= getdate(end_date):
+            wage_rule_rev_name= wage_rule.wage_rule_details[i].name
             if wage_rule.wage_rule_details[i].rate_per == "Month":
                 rate= round(wage_rule.wage_rule_details[i].rate / total_days, 2)
             else: rate= round(wage_rule.wage_rule_details[i].rate, 2)
-    return rate
+    return rate, wage_rule_rev_name
 
 def get_sunday_count(start_date, end_date, period):
     from sps.sps.doctype.people_attendance.people_attendance import get_wo_count
@@ -2093,6 +2109,7 @@ def get_total_qty(total_bill_duty, sunday_count, contract, work_type):
     else: total_qty= bill_duty
     return total_qty
 
+@frappe.whitelist()
 def get_posting_date(start_date):
     import datetime
     start_date_day= datetime.datetime.strptime(start_date, "%Y-%m-%d").day
@@ -2334,7 +2351,7 @@ def standard_invoicing(customer, billing_period, pointer):
                                         where ct.name= '%s' and and ((ctd.from_date <= '%s' and ctd.to_date >= '%s') 
                                         or (ctd.from_date <= '%s' and ctd.to_date <= '%s')); """ %(all_contract[i]["name"]), as_dict= True)
             for data in bill_data:
-                rate= get_price(data["wage_rule"], None, period.start_date, period.end_date)
+                rate, wage_rule_rev_name= get_price(data["wage_rule"], None, period.start_date, period.end_date)
                 from_date=  data["from_date"] if str(data["from_date"]) >= str(period.start_date) else period.start_date
                 to_date= data["to_date"] if str(data["to_date"]) <= str(period.end_date) else period.end_date
                 total_days= date_diff(to_date, from_date) + 1 
@@ -2346,6 +2363,7 @@ def standard_invoicing(customer, billing_period, pointer):
                                         "rate": rate,
                                         "salary_structure":data["wage_rule"],
                                         "ss_revision_rate": rate,
+                                        "ss_revision_name": wage_rule_rev_name,
                                         "contract": data["contract"],
                                         "contract_quantity": data["quantity"],
                                         "site": data["site"],
@@ -2427,8 +2445,10 @@ def po_wise_billing(customer, billing_period, pointer):
     for data in bill_data:
         wage_rule= frappe.get_doc("Wage Structure", data["wage_rule"])
         rate= 0.0
+        wage_rule_rev_name= None
         for i in range(0, len(wage_rule.wage_rule_details)):
             if getdate(wage_rule.wage_rule_details[i].from_date) <= getdate(period.start_date) and getdate(wage_rule.wage_rule_details[i].to_date) >= getdate(period.end_date):
+                wage_rule_rev_name= wage_rule.wage_rule_details[i].name
                 if wage_rule.wage_rule_details[i].rate_per == "Month":
                     rate= round(wage_rule.wage_rule_details[i].rate / total_days, 2)
                 else: rate= round(wage_rule.wage_rule_details[i].rate, 2)
@@ -2440,6 +2460,7 @@ def po_wise_billing(customer, billing_period, pointer):
                                 "rate": rate,
                                 "salary_structure":data["wage_rule"],
                                 "ss_revision_rate": rate,
+                                "ss_revision_name": wage_rule_rev_name,
                                 "contract": data["contract"],
                                 "contract_quantity": data["quantity"],
                                 "site": data["site"],
