@@ -1416,7 +1416,6 @@ class SalesInvoice(SellingController):
                 from_date=  row.from_date if str(row.from_date) >= str(period_from_date) else period_from_date
                 to_date= row.to_date if str(row.to_date) <= str(period_to_date) else period_to_date
                 total_days= date_diff(to_date, from_date) + 1
-                print(from_date, to_date, total_days)
                 self.append('items',{   'rate': float(rate),
                                         'price_list_rate': float(rate),
                                         'item_code': row.work_type,
@@ -1485,7 +1484,6 @@ class SalesInvoice(SellingController):
                 if count == 0: frappe.throw(_("Wage Structure : '{0}'. revision not found between '{1} - {2}' ").format(sal_struct.rule_code,period_start_dt, period_end_dt))
             else : frappe.throw(_("Wage Rule Revision Not found in Wage Structure: {0}").format(sal_struct.rule_code))
         else : frappe.throw(_("Wage Structure: {0} should be Active").format(sal_struct.rule_code))
-        print({"wr_rate": round(wr_rate,2), "wr_name": wr_name, "wr_revision": wr_revision})
         return {"wr_rate": round(wr_rate,2), "wr_name": wr_name, "wr_revision": wr_revision}
 
     
@@ -1557,7 +1555,6 @@ class SalesInvoice(SellingController):
                             order by pa.contract, pds.work_type"""%(self.standard_bill, self.billing_period, self.customer)
             
             attd_doc = frappe.db.sql(sqlQuery, as_dict = True)
-            print(attd_doc, type(attd_doc))
             #pa_doc   = frappe.get_doc("People Attendance", self.billing_period)
             company_income_acount, cost_center= frappe.db.get_value('Company', self.company, ['default_income_account', 'cost_center'])
             for i in range(len(attd_doc)):
@@ -2153,7 +2150,7 @@ def attendance_wise_invoicing(customer, billing_period, pointer):
         address= None
         sunday_count= get_sunday_count(att_data[0]["start_date"], att_data[0]["end_date"], billing_period)
         for data in bill_data:
-            rate= get_price(data["wage_rule"], data["wage_rule_details"], att_data[0]["start_date"], att_data[0]["end_date"])
+            rate, wage_rule_rev_name= get_price(data["wage_rule"], data["wage_rule_details"], att_data[0]["start_date"], att_data[0]["end_date"])
             contract_doc= frappe.get_doc('Site Contract', data["contract"])
             si_doc.append('items', {"item_code": data["work_type"],
                                     "item_name": data["work_type"],
@@ -2248,7 +2245,7 @@ def customer_or_state_wise_invoicing(customer, billing_period, pointer):
 
     sunday_count= get_sunday_count(att_data[0]["start_date"], att_data[0]["end_date"], billing_period)
     for data in bill_data:
-        rate= get_price(data["wage_rule"], data["wage_rule_details"], att_data[0]["start_date"], att_data[0]["end_date"])
+        rate, wage_rule_rev_name= get_price(data["wage_rule"], data["wage_rule_details"], att_data[0]["start_date"], att_data[0]["end_date"])
         contract_doc= frappe.get_doc('Site Contract', data["contract"])
         si_doc.append('items', {"item_code": data["work_type"],
                                     "item_name": data["work_type"],
