@@ -1601,7 +1601,7 @@ class SalesInvoice(SellingController):
         return len(data)
 
     def get_data_work_type_wise(self):
-        data= frappe.db.sql("""select item_code, item_name, sum(qty) as qty, rate, sum(amount), ss_revision_name from `tabSales Invoice Item` where parent= '%s' group by item_code, rate;"""%(self.name), as_dict= True)
+        data= frappe.db.sql("""select item_code, item_name, sum(qty) as qty, rate, sum(amount) as amount, ss_revision_name from `tabSales Invoice Item` where parent= '%s' group by item_code, rate;"""%(self.name), as_dict= True)
         return data
     #################### CUSTOM YTPL END#######################################
 
