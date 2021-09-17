@@ -223,7 +223,7 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
         me.frm.set_value('standard_bill', "");
         me.frm.set_value('site', "");
         me.frm.set_value('site_address_on_bill', 0);
-        if(cur_frm.doc.billing_period != undefined){
+        if(cur_frm.doc.billing_period != undefined && cur_frm.doc.billing_period != '' && cur_frm.doc.si_from_date != ''){
             frappe.call({
                 method: "erpnext.accounts.doctype.sales_invoice.sales_invoice.get_posting_date",
                 args: {'start_date': cur_frm.doc.si_from_date},
@@ -457,7 +457,7 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
                 }
             }
 		}
-        if(cur_frm.doc.billing_period != undefined){
+        if(cur_frm.doc.billing_period != undefined && (cur_frm.doc.si_from_date != '' && cur_frm.doc.si_from_date != undefined)){
             if (cur_frm.doc.posting_date == undefined){
                 frappe.call({
                     method: "erpnext.accounts.doctype.sales_invoice.sales_invoice.get_posting_date",
