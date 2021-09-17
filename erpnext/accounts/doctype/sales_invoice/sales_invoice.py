@@ -1386,8 +1386,8 @@ class SalesInvoice(SellingController):
             if getdate(wage_rule.wage_rule_details[i].from_date) <= getdate(start_date) and getdate(wage_rule.wage_rule_details[i].to_date) >= getdate(end_date):
                 wage_rule_rev_name= wage_rule.wage_rule_details[i].name
                 if wage_rule.wage_rule_details[i].rate_per == "Month":
-                    rate= round(wage_rule.wage_rule_details[i].rate / total_days, 2)
-                else: rate= round(wage_rule.wage_rule_details[i].rate, 2)
+                    rate= wage_rule.wage_rule_details[i].rate / total_days
+                else: rate= wage_rule.wage_rule_details[i].rate
         return rate, wage_rule_rev_name
 
     def get_items_for_standard_billing(self, contract_list, period_from_date, period_to_date):
@@ -1500,20 +1500,20 @@ class SalesInvoice(SellingController):
                         if prev_si_items.salary_structure:
                             new_details= self.get_wage_rule_details(prev_si_items.salary_structure, prev_si_items.item_from_date, prev_si_items.item_to_date)
                             rr_rate= self.rate_revision_si(prev_bill.name, prev_si_items.item_code, prev_si_items.item_from_date, prev_si_items.item_to_date)
-                            curr_rate = round(new_details['wr_rate'],2)
-                            base_rate = round(prev_si_items.rate, 2)
+                            curr_rate = new_details['wr_rate']
+                            base_rate = prev_si_items.rate
 
-                            diff_rate = round(round(curr_rate, 2) - round(base_rate, 2), 2) - round(rr_rate, 2)
+                            diff_rate = (curr_rate - base_rate) - rr_rate
                             if(diff_rate > 0.0):
                                 prev_si_items.ss_revision_name = new_details['wr_name'];
                                 prev_si_items.ss_revision_no = new_details['wr_revision'];
                                 prev_si_items.ss_revision_rate = round(curr_rate,2);
-                                prev_si_items.rate = round(diff_rate,2)
+                                prev_si_items.rate = diff_rate
 
                                 if si_items_row.has_key(prev_bill.name): si_items_row[prev_bill.name].append(prev_si_items)
                                 else: si_items_row[prev_bill.name] = [prev_si_items]
-                                self.append('items',{   'rate': round(diff_rate,2),
-                                                        'price_list_rate': round(diff_rate,2) , 
+                                self.append('items',{   'rate': diff_rate,
+                                                        'price_list_rate': diff_rate , 
                                                         'item_code': prev_si_items.item_code,
                                                         'item_name': prev_si_items.item_code,
                                                         'description': prev_si_items.item_code,
@@ -1525,7 +1525,7 @@ class SalesInvoice(SellingController):
                                                         'attendance': prev_si_items.attendance,
                                                         'salary_structure': prev_si_items.salary_structure,
                                                         'ss_revision_name': new_details['wr_name'],
-                                                        'ss_revision_rate': round(curr_rate,2),
+                                                        'ss_revision_rate': curr_rate,
                                                         'item_from_date': prev_si_items.item_from_date ,
                                                         'item_to_date':  prev_si_items.item_to_date ,
                                                         'income_account': prev_si_items.income_account,
@@ -2085,8 +2085,8 @@ def get_price(salary_structure, wage_rule_rev_name, start_date, end_date):
         if getdate(wage_rule.wage_rule_details[i].from_date) <= getdate(start_date) and getdate(wage_rule.wage_rule_details[i].to_date) >= getdate(end_date):
             wage_rule_rev_name= wage_rule.wage_rule_details[i].name
             if wage_rule.wage_rule_details[i].rate_per == "Month":
-                rate= round(wage_rule.wage_rule_details[i].rate / total_days, 2)
-            else: rate= round(wage_rule.wage_rule_details[i].rate, 2)
+                rate= wage_rule.wage_rule_details[i].rate / total_days
+            else: rate= wage_rule.wage_rule_details[i].rate
     return rate, wage_rule_rev_name
 
 def get_sunday_count(start_date, end_date, period):
