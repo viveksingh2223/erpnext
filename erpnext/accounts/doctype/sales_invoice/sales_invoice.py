@@ -537,7 +537,6 @@ class SalesInvoice(SellingController):
             collection_view.total_amount = self.total
             collection_view.total_gst_amount = self.rounded_total
             collection_view.status = "Draft"
-            collection_view.remark = ""
             for item in self.items:
                 collection_view.append('collection_view_item', {'work_type': item.item_code, 'rate': item.rate, 'amount': item.amount, 'site_name': item.site_name, 'site_code':item.site})
             collection_view.insert()
@@ -551,7 +550,6 @@ class SalesInvoice(SellingController):
             collection_view.total_amount = self.total
             collection_view.total_gst_amount = self.rounded_total
             collection_view.status = "Draft"
-            collection_view.remark = ""
             collection_view.collection_view_item= []
             for item in self.items:
                 collection_view.append('collection_view_item', {'work_type': item.item_code, 'rate': item.rate, 'amount': item.amount, 'site_name': item.site_name, 'site_code':item.site})
@@ -1559,52 +1557,58 @@ class SalesInvoice(SellingController):
             filters = [['docstatus', '=', 1],['is_return', '=', 0],['billing_type', 'in', ['Standard', 'Attendance', 'Supplementary']],['si_from_date', '>=', self.arrears_bill_from],['customer', '=', self.customer]]
             si_list = frappe.get_list('Sales Invoice', fields=['*'], filters=filters)
             si_items_row= {}
+            from_date= None
+            to_date= None
             if si_list:
                 for prev_bill in si_list:
                     prev_si = frappe.get_doc('Sales Invoice', prev_bill.name)
                     for prev_si_items in prev_si.items:
                         diff_rate = curr_rate = 0.00
-                        if prev_si_items.salary_structure:
-                            new_details= self.get_wage_rule_details(prev_si_items.salary_structure, prev_si_items.item_from_date, prev_si_items.item_to_date)
-                            rr_rate= self.rate_revision_si(prev_bill.name, prev_si_items.item_code, prev_si_items.item_from_date, prev_si_items.item_to_date)
-                            curr_rate = new_details['wr_rate']
-                            base_rate = prev_si_items.rate
+                        if prev_si_items.attendance or prev_si_items.contract:
+                            if prev_si_items.salary_structure:
+                                new_details= self.get_wage_rule_details(prev_si_items.salary_structure, prev_si_items.item_from_date, prev_si_items.item_to_date)
+                                rr_rate= self.rate_revision_si(prev_bill.name, prev_si_items.item_code, prev_si_items.item_from_date, prev_si_items.item_to_date)
+                                curr_rate = new_details['wr_rate']
+                                base_rate = prev_si_items.rate
 
-                            diff_rate = (curr_rate - base_rate) - rr_rate
-                            if(diff_rate > 0.0):
-                                prev_si_items.ss_revision_name = new_details['wr_name'];
-                                prev_si_items.ss_revision_no = new_details['wr_revision'];
-                                prev_si_items.ss_revision_rate = round(curr_rate,2);
-                                prev_si_items.rate = diff_rate
+                                diff_rate = (curr_rate - base_rate) - rr_rate
+                                if(diff_rate > 0.0):
+                                    prev_si_items.ss_revision_name = new_details['wr_name'];
+                                    prev_si_items.ss_revision_no = new_details['wr_revision'];
+                                    prev_si_items.ss_revision_rate = round(curr_rate,2);
+                                    prev_si_items.rate = diff_rate
 
-                                if prev_bill.name in si_items_row: si_items_row[prev_bill.name].append(prev_si_items)
-                                else: si_items_row[prev_bill.name] = [prev_si_items]
-                                self.append('items',{   'rate': diff_rate,
-                                                        'price_list_rate': diff_rate , 
-                                                        'item_code': prev_si_items.item_code,
-                                                        'item_name': prev_si_items.item_code,
-                                                        'description': prev_si_items.item_code,
-                                                        'uom': 'Nos',
-                                                        'qty': prev_si_items.qty,
-                                                        'contract': prev_si_items.contract,
-                                                        'contract_quantity': prev_si_items.contract_quantity,
-                                                        'site': prev_si_items.site,
-                                                        'attendance': prev_si_items.attendance,
-                                                        'salary_structure': prev_si_items.salary_structure,
-                                                        'ss_revision_name': new_details['wr_name'],
-                                                        'ss_revision_rate': curr_rate,
-                                                        'item_from_date': prev_si_items.item_from_date ,
-                                                        'item_to_date':  prev_si_items.item_to_date ,
-                                                        'income_account': prev_si_items.income_account,
-                                                        'cost_center': prev_si_items.cost_center,
-                                                        'ref_sales_invoice': prev_bill.name,
-                                                        'ref_invoice_rate': prev_si_items.rate
-                                                        }
-                                                        )
-                        else: frappe.throw(_("Wage Structure not linked."))
+                                    if prev_bill.name in si_items_row: si_items_row[prev_bill.name].append(prev_si_items)
+                                    else: si_items_row[prev_bill.name] = [prev_si_items]
+                                    from_date= prev_si_items.item_from_date
+                                    to_date= prev_si_items.item_to_date
+                                    self.append('items',{   'rate': diff_rate,
+                                                            'price_list_rate': diff_rate , 
+                                                            'item_code': prev_si_items.item_code,
+                                                            'item_name': prev_si_items.item_code,
+                                                            'description': prev_si_items.item_code,
+                                                            'uom': 'Nos',
+                                                            'qty': prev_si_items.qty,
+                                                            'contract': prev_si_items.contract,
+                                                            'contract_quantity': prev_si_items.contract_quantity,
+                                                            'site': prev_si_items.site,
+                                                            'attendance': prev_si_items.attendance,
+                                                            'salary_structure': prev_si_items.salary_structure,
+                                                            'ss_revision_name': new_details['wr_name'],
+                                                            'ss_revision_rate': curr_rate,
+                                                            'item_from_date': prev_si_items.item_from_date ,
+                                                            'item_to_date':  prev_si_items.item_to_date ,
+                                                            'income_account': prev_si_items.income_account,
+                                                            'cost_center': prev_si_items.cost_center,
+                                                            'ref_sales_invoice': prev_bill.name,
+                                                            'ref_invoice_rate': prev_si_items.rate
+                                                            }
+                                                            )
+                            else: frappe.throw(_("Wage Structure not linked."))
+                        pass
                     pass
-                #period= {'from_date': self.items[0]['item_from_date'], 'to_date': self.items[0]['item_to_date']} 
-                #self.add_service_charges(period)
+                period= {'from_date': from_date, 'to_date': to_date} 
+                self.add_service_charges(period)
             if not si_items_row : frappe.msgprint(_("Rate Diffrence Not Found"))
         else: frappe.throw(_("Bill not generated after '{0}' for Customer : {1}").format(self.arrears_bill_from, self.customer))
         return "Item Fetched"
