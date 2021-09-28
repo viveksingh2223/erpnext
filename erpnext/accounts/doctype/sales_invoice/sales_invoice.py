@@ -1552,7 +1552,7 @@ class SalesInvoice(SellingController):
         return {"wr_rate": round(wr_rate,2), "wr_name": wr_name, "wr_revision": wr_revision}
 
     
-    def get_data_to_make_arrears_bill(self):
+    def get_data_to_make_arrears_bill(self, contract_list):
         if self.arrears_bill_from and self.customer:
             filters = [['docstatus', '=', 1],['is_return', '=', 0],['billing_type', 'in', ['Standard', 'Attendance', 'Supplementary']],['si_from_date', '>=', self.arrears_bill_from],['customer', '=', self.customer]]
             si_list = frappe.get_list('Sales Invoice', fields=['*'], filters=filters)
@@ -1564,7 +1564,7 @@ class SalesInvoice(SellingController):
                     prev_si = frappe.get_doc('Sales Invoice', prev_bill.name)
                     for prev_si_items in prev_si.items:
                         diff_rate = curr_rate = 0.00
-                        if prev_si_items.attendance or prev_si_items.contract:
+                        if (prev_si_items.attendance or prev_si_items.contract) and prev_si_items.contract in contract_list:
                             if prev_si_items.salary_structure:
                                 new_details= self.get_wage_rule_details(prev_si_items.salary_structure, prev_si_items.item_from_date, prev_si_items.item_to_date)
                                 rr_rate= self.rate_revision_si(prev_bill.name, prev_si_items.item_code, prev_si_items.item_from_date, prev_si_items.item_to_date)

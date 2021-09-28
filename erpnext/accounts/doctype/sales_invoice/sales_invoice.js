@@ -362,7 +362,23 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
 	get_rate_revision_btn: function(frm) {
         var me = this;
         if(me.frm.doc.arrears_bill_from && me.frm.doc.customer){
-            frappe.model.clear_table(me.frm.doc, "items");
+             map_arrears_doc({
+                        //method: "erpnext.crm.doctype.contract.contract.make_sales_invoice",
+                        source_doctype: "Site Contract",
+                        target: me.frm,
+                        me:me,
+                        date_field:"start_date",
+                        setters: {
+                            //customer: me.frm.doc.customer || undefined,
+                        },
+                        get_query_filters: {
+                            docstatus: 1,
+                            status: 'Active',
+                            party_name: ["=", me.frm.doc.customer],
+                            start_date: ['<=', me.frm.doc.arrears_bill_from],
+                        }
+             })
+            /*frappe.model.clear_table(me.frm.doc, "items");
             me.frm.refresh_field("items");
             frappe.call({
                 method: "get_data_to_make_arrears_bill",
@@ -374,7 +390,7 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
                         cur_frm.refresh()
                     }
                 }
-            });
+            });*/
         }
     },
     /*************************** Custom YTPL*****************************/
@@ -751,6 +767,58 @@ var map_att_doc = function(opts) {
 		_map();
 	}
 	/*************** End Load Items From multiple Attendance *******************/
+}
+
+var map_arrears_doc= function(opts) {
+    if(opts.get_query_filters) {
+    opts.get_query = function() {
+        return {filters: opts.get_query_filters};
+        }
+    }
+    var _map = function() {
+        frappe.model.clear_table(cur_frm.doc, "items");
+        cur_frm.refresh_field("items");
+        if(cur_frm.doc.customer && cur_frm.doc.arrears_bill_from) {
+            frappe.call({
+                method: "get_data_to_make_arrears_bill",
+                doc: cur_frm.doc,
+                args: {'contract_list': opts.source_name},
+                async: false,
+                callback: function(r) {
+                    if(r.message) {
+                        cur_frm.save()
+                        cur_frm.refresh()
+                    }
+                }
+            });
+                
+        }else{
+            frappe.msgprint(__("Select Arrears Bill From Date And Customer before load contracts"));
+        }
+    }
+    if(opts.source_doctype) {
+        var d = new frappe.ui.form.MultiSelectDialog({
+            doctype: opts.source_doctype,
+            target: opts.target,
+            //date_field: opts.date_field || undefined,
+            setters: opts.setters,
+            get_query: opts.get_query,
+            action: function(selections, args) {
+                let values = selections;
+                if(values.length === 0){
+                    frappe.msgprint(__("Please select {0}", [opts.source_doctype]))
+                    return;
+                }
+                opts.source_name = values;
+                opts.setters = args;
+                d.dialog.hide();
+                _map();
+            },
+        });
+    } else if(opts.source_name) {
+    opts.source_name = [opts.source_name];
+        _map();
+    }
 }
 
 /*************************** Custom YTPL*****************************/
