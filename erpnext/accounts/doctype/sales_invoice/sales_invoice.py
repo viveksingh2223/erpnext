@@ -1429,7 +1429,7 @@ class SalesInvoice(SellingController):
         self.items= []
         period = frappe.get_doc('Salary Payroll Period', billing_period)
         if att_list:
-            att_data= None
+            att_data= []
             difference_attendance_mapping= {}
             if len(att_list) > 1:
                 difference_attendance_data= frappe.db.sql("""select name from `tabDifference Attendance` where name in %s"""%(str(tuple(att_list))), as_dict= True)
@@ -1439,7 +1439,8 @@ class SalesInvoice(SellingController):
                         difference_attendance_mapping[difference_attendance.name]= "Difference Attendance"
                         att_list.remove(difference_attendance.name)
                         difference_attendance_list.append(difference_attendance.name)
-                    att_data= self.get_attendance_data(att_list)
+                    if len(att_list) > 0:
+                        att_data= self.get_attendance_data(att_list)
                     if len(difference_attendance_list) > 1:    
                         att_data+= frappe.db.sql("""select atd.work_type, sum(atd.bill_duty) as total_bill_duty,  ctd.quantity, 
                                                     att.include_relieving_charges, atd.wage_rule, att.name, atd.wage_rule_details, att.contract, 
