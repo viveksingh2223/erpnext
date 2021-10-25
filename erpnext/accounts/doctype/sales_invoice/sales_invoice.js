@@ -332,7 +332,7 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
                         docstatus: 1,
                         attendance_period: ["=", me.frm.doc.billing_period],
                         customer: ["=", me.frm.doc.customer],
-                        status: ["=", "To Bill"],
+                        status: ["in", ["To Bill", 'Difference Attendance']],
                         company: me.frm.doc.company,
                         name: ['not in', draft_bill_list]
                     }

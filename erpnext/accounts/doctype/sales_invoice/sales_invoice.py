@@ -248,10 +248,8 @@ class SalesInvoice(SellingController):
         self.update_prevdoc_status()
         self.update_billing_status_in_dn()
         self.clear_unallocated_mode_of_payments()
-        self.submit_collection_view() #### YTPL CODE
 
         ################# YTPL CODE START ################################################### 
-    def submit_collection_view(self):
         exist_list= frappe.get_all('Collection View', filters={'sales_invoice_number': self.name}, fields=['name', 'customer_name'])
         collection_view = frappe.get_doc("Collection View", exist_list[0]["name"])
         collection_view.invoice_submission_date= self.modified
@@ -260,7 +258,6 @@ class SalesInvoice(SellingController):
         collection_view.submit()
         collection_view.reload()
        
-        ################# YTPL CODE END ################################################### 
         ### YTPL CODE Check Bill Duty Of people attendance and billing quantity ##
         update_modified=True
         if self.billing_type == "Standard":
@@ -276,11 +273,11 @@ class SalesInvoice(SellingController):
                         else:
                             frappe.db.set_value("People Attendance", attendance[0]["name"], "status", 'Completed', update_modified=update_modified)
         elif self.billing_type == "Attendance":
-            attendance_wise_total_bill_quantity= frappe.db.sql("""select sii.attendance as attendance, sum(sii.qty) as total_bill_duty from `tabSales Invoice` si 
+            attendance_wise_total_bill_quantity= frappe.db.sql("""select sii.attendance as attendance, sii.difference_attendance, sum(sii.qty) as total_bill_duty from `tabSales Invoice` si 
                                                                     inner join `tabSales Invoice Item` sii on si.name= sii.parent 
                                                                     where si.name= '%s' group by sii.attendance;"""%(self.name), as_dict= True)
             for attendance in attendance_wise_total_bill_quantity:
-                if attendance.attendance != None:
+                if attendance.attendance != None and attendance.difference_attendance != 'Difference Attendance':
                     people_attendance= frappe.db.sql("""select pa.name, sum(atd.bill_duty) as total_bill_duty from `tabPeople Attendance` pa 
                                             inner join `tabAttendance Details` atd on pa.name= atd.parent 
                                             where pa.name= '%s'"""%(attendance.attendance), as_dict= True)
@@ -289,6 +286,15 @@ class SalesInvoice(SellingController):
                             frappe.db.set_value("People Attendance", attendance.attendance, "status", 'Partially Completed', update_modified=update_modified)
                         else:
                             frappe.db.set_value("People Attendance", attendance.attendance, "status", 'Completed', update_modified=update_modified)
+                elif attendance.attendance != None and attendance.difference_attendance == 'Difference Attendance':
+                    difference_attendance= frappe.db.sql("""select pa.name, sum(atd.bill_duty) as total_bill_duty from `tabDifference Attendance` pa 
+                                                            inner join `tabDifference Attendance Details` atd on pa.name= atd.parent 
+                                                            where pa.name= '%s'"""%(attendance.attendance), as_dict= True)
+                    if len(difference_attendance) > 0:
+                        if difference_attendance[0]["total_bill_duty"] > attendance.total_bill_duty:
+                            frappe.db.set_value("Difference Attendance", attendance.attendance, "status", 'Partially Completed', update_modified=update_modified)
+                        else:
+                            frappe.db.set_value("Difference Attendance", attendance.attendance, "status", 'Completed', update_modified=update_modified)
         elif self.billing_type == "Supplementry":
             self.update_attendance('Completed')
         else:
@@ -358,8 +364,11 @@ class SalesInvoice(SellingController):
     def update_attendance(self, status, update_modified=True):
         if self.items:
             for items in self.items:
-                if items.attendance:
+                if items.attendance and items.difference_attendance != 'Difference Attendance':
                     frappe.db.set_value("People Attendance", items.attendance, "status", status, update_modified=update_modified)
+                elif items.attendance and items.difference_attendance == 'Difference Attendance':
+                    frappe.db.set_value("Difference Attendance", items.attendance, "status", status, update_modified=update_modified)
+
                 if self.billing_type == 'Standard' and items.contract and items.site:
                     attendance= frappe.db.sql("""select name from `tabPeople Attendance` where contract= '%s' and attendance_period= '%s'"""%(items.contract, self.billing_period), as_dict= True)
                     if len(attendance) > 0:
@@ -528,32 +537,41 @@ class SalesInvoice(SellingController):
          # create sales invoice in collection view
         exist_list= frappe.get_all('Collection View', filters={'sales_invoice_number': self.name}, fields=['name', 'customer_name'])
         if len(exist_list) == 0:
-            print("@@@@@@@@@@@@111111@@@@@@@@@@")
             collection_view = frappe.new_doc("Collection View")
             collection_view.customer_name = self.customer_name
             collection_view.sales_invoice_number = self.name
             collection_view.invoice_creation_date = self.creation
             collection_view.invoice_created_by = self.owner
-            collection_view.total_amount = self.total
-            collection_view.total_gst_amount = self.rounded_total
+            collection_view.total_amount = self.rounded_total
+            collection_view.total_gst_amount = self.total_taxes_and_charges
             collection_view.status = "Draft"
+            collection_view.billing_period = self.billing_period
+            collection_view.taxes_and_charges = self.taxes_and_charges
             for item in self.items:
                 collection_view.append('collection_view_item', {'work_type': item.item_code, 'rate': item.rate, 'amount': item.amount, 'site_name': item.site_name, 'site_code':item.site})
+            for tax in self.taxes:
+                collection_view.append('collection_taxes' , {'type':tax.charge_type, 'account_head': tax.account_head, 'rate': tax.rate, 'amount': tax.tax_amount, 'total': tax.total})
             collection_view.insert()
+            collection_view.reload()
         else:
-            print("@@@@@@@@@@@@2222@@@@@@@@@@")
             collection_view = frappe.get_doc("Collection View", exist_list[0]["name"])
             collection_view.customer_name = self.customer_name
             collection_view.sales_invoice_number = self.name
             collection_view.invoice_creation_date = self.creation
             collection_view.invoice_created_by = self.owner
-            collection_view.total_amount = self.total
-            collection_view.total_gst_amount = self.rounded_total
+            collection_view.total_amount = self.rounded_total
+            collection_view.total_gst_amount = self.total_taxes_and_charges
             collection_view.status = "Draft"
+            collection_view.billing_period = self.billing_period
+            collection_view.taxes_and_charges = self.taxes_and_charges
             collection_view.collection_view_item= []
             for item in self.items:
                 collection_view.append('collection_view_item', {'work_type': item.item_code, 'rate': item.rate, 'amount': item.amount, 'site_name': item.site_name, 'site_code':item.site})
+            collection_view.collection_taxes= []
+            for tax in self.taxes:
+                collection_view.append('collection_taxes' , {'type':tax.charge_type, 'account_head': tax.account_head, 'rate': tax.rate, 'amount': tax.tax_amount, 'total': tax.total})
             collection_view.save()
+            collection_view.reload()
         #################### CUSTOM YTPL CODE END#####################
 
     def set_paid_amount(self):
@@ -1384,32 +1402,68 @@ class SalesInvoice(SellingController):
                     total_qty= bill_duty + (sunday_count * row.quantity)
                 else: total_qty= bill_duty
         else: total_qty= bill_duty
-        return total_qty  
+        return total_qty
+
+    def get_attendance_data(self, att_list):
+        att_data= []
+        if len(att_list) > 1:
+            att_data= frappe.db.sql("""select atd.work_type, sum(atd.bill_duty) as total_bill_duty,  ctd.quantity, 
+                                        att.include_relieving_charges, atd.wage_rule, att.name, atd.wage_rule_details, att.contract, 
+                                        att.site, att.site_name, att.weekly_off_included, att.company  from `tabPeople Attendance` att  
+                                        inner join `tabAttendance Details` atd on atd.parent= att.name 
+                                        inner join `tabContract Details` ctd on att.contract= ctd.parent and atd.work_type= ctd.work_type 
+                                        where att.name in %s group by att.name, atd.work_type;"""%(str(tuple(att_list))), as_dict= True)
+        else:
+            att_data= frappe.db.sql("""select atd.work_type, sum(atd.bill_duty) as total_bill_duty,  ctd.quantity, 
+                                        att.include_relieving_charges, atd.wage_rule, att.name, atd.wage_rule_details, att.contract, 
+                                        att.site, att.site_name, att.weekly_off_included, att.company  from `tabPeople Attendance` att  
+                                        inner join `tabAttendance Details` atd on atd.parent= att.name 
+                                        inner join `tabContract Details` ctd on att.contract= ctd.parent and atd.work_type= ctd.work_type 
+                                        where att.name='%s' group by att.name, atd.work_type;"""%(str(att_list[0])), as_dict= True)
+        return att_data 
+               
                     
     def get_details_to_create_items(self, att_list, billing_period):
         self.items= []
         period = frappe.get_doc('Salary Payroll Period', billing_period)
         if att_list:
             att_data= None
+            difference_attendance_mapping= {}
             if len(att_list) > 1:
-                #att_data = frappe.db.sql("""select atd.work_type, sum(atd.bill_duty) as total_bill_duty, 
-                #                        att.include_relieving_charges, atd.wage_rule, att.name,  
-                #                        atd.wage_rule_details, att.contract, att.site, att.site_name, att.weekly_off_included, att.company 
-                #                        from `tabPeople Attendance` att inner join `tabAttendance Details` atd on atd.parent= att.name 
-                #                        where att.name in %s group by att.name, atd.work_type;"""%(str(tuple(att_list))), as_dict= True)
-                att_data = frappe.db.sql("""select atd.work_type, sum(atd.bill_duty) as total_bill_duty,  ctd.quantity, 
-                                            att.include_relieving_charges, atd.wage_rule, att.name, atd.wage_rule_details, att.contract, 
-                                            att.site, att.site_name, att.weekly_off_included, att.company  from `tabPeople Attendance` att  
-                                            inner join `tabAttendance Details` atd on atd.parent= att.name 
-                                            inner join `tabContract Details` ctd on att.contract= ctd.parent and atd.work_type= ctd.work_type 
-                                            where att.name in %s group by att.name, atd.work_type;"""%(str(tuple(att_list))), as_dict= True)
+                difference_attendance_data= frappe.db.sql("""select name from `tabDifference Attendance` where name in %s"""%(str(tuple(att_list))), as_dict= True)
+                difference_attendance_list= []
+                if len(difference_attendance_data) > 0:
+                    for difference_attendance in difference_attendance_data:
+                        difference_attendance_mapping[difference_attendance.name]= "Difference Attendance"
+                        att_list.remove(difference_attendance.name)
+                        difference_attendance_list.append(difference_attendance.name)
+                    att_data= self.get_attendance_data(att_list)
+                    if len(difference_attendance_list) > 1:    
+                        att_data+= frappe.db.sql("""select atd.work_type, sum(atd.bill_duty) as total_bill_duty,  ctd.quantity, 
+                                                    att.include_relieving_charges, atd.wage_rule, att.name, atd.wage_rule_details, att.contract, 
+                                                    att.site, att.site_name, att.weekly_off_included, att.company  from `tabDifference Attendance` att  
+                                                    inner join `tabDifference Attendance Details` atd on atd.parent= att.name 
+                                                    inner join `tabContract Details` ctd on att.contract= ctd.parent and atd.work_type= ctd.work_type 
+                                                    where att.name in %s group by att.name, atd.work_type;"""%(str(tuple(difference_attendance_list))), as_dict= True)
+                    else:
+                        att_data+= frappe.db.sql("""select atd.work_type, sum(atd.bill_duty) as total_bill_duty,  ctd.quantity, 
+                                                att.include_relieving_charges, atd.wage_rule, att.name, atd.wage_rule_details, att.contract, 
+                                                att.site, att.site_name, att.weekly_off_included, att.company  from `tabDifference Attendance` att 
+                                                inner join `tabDifference Attendance Details` atd on atd.parent= att.name 
+                                                inner join `tabContract Details` ctd on att.contract= ctd.parent and atd.work_type= ctd.work_type 
+                                                where att.name= '%s' group by att.name, atd.work_type;"""%(str(difference_attendance_list[0])), as_dict= True)
+                     
             else:
-                att_data = frappe.db.sql("""select atd.work_type, sum(atd.bill_duty) as total_bill_duty,  ctd.quantity, 
-                                            att.include_relieving_charges, atd.wage_rule, att.name, atd.wage_rule_details, att.contract, 
-                                            att.site, att.site_name, att.weekly_off_included, att.company  from `tabPeople Attendance` att  
-                                            inner join `tabAttendance Details` atd on atd.parent= att.name 
-                                            inner join `tabContract Details` ctd on att.contract= ctd.parent and atd.work_type= ctd.work_type 
-                                            where att.name= '%s' group by att.name, atd.work_type;"""%(str(att_list[0])), as_dict= True)
+                if frappe.db.sql("select name from `tabDifference Attendance` where name= '%s'"%(str(att_list[0])), as_dict= True):
+                    difference_attendance_mapping[str(att_list[0])]= "Difference Attendance"
+                    att_data= frappe.db.sql("""select atd.work_type, sum(atd.bill_duty) as total_bill_duty,  ctd.quantity, 
+                                                att.include_relieving_charges, atd.wage_rule, att.name, atd.wage_rule_details, att.contract, 
+                                                att.site, att.site_name, att.weekly_off_included, att.company  from `tabDifference Attendance` att 
+                                                inner join `tabDifference Attendance Details` atd on atd.parent= att.name 
+                                                inner join `tabContract Details` ctd on att.contract= ctd.parent and atd.work_type= ctd.work_type 
+                                                where att.name= '%s' group by att.name, atd.work_type;"""%(str(att_list[0])), as_dict= True)
+                else:
+                    att_data= self.get_attendance_data(att_list)  
 
             company_income_acount, cost_center= frappe.db.get_value('Company', att_data[0]['company'], ['default_income_account', 'cost_center'])
             sunday_count= self.get_sunday_count(period.start_date, period.end_date, period.name)
@@ -1430,6 +1484,7 @@ class SalesInvoice(SellingController):
                                             'contract_quantity': row.quantity,
                                             'site': row.site,
                                             'attendance': row.name,
+                                            'difference_attendance': difference_attendance_mapping.get(row.name),
                                             'salary_structure': row.wage_rule,
                                             'ss_revision_name': wage_rule_details,
                                             'ss_revision_rate': float(rate),
@@ -1671,6 +1726,7 @@ class SalesInvoice(SellingController):
     def get_data_work_type_wise(self):
         data= frappe.db.sql("""select item_code, item_name, sum(qty) as qty, rate, sum(amount) as amount, ss_revision_name from `tabSales Invoice Item` where parent= '%s' group by item_code, rate;"""%(self.name), as_dict= True)
         return data
+
     #################### CUSTOM YTPL END#######################################
 
 def booked_deferred_revenue():
@@ -2579,8 +2635,6 @@ def po_wise_billing(customer, billing_period, pointer):
     calculate_taxes_and_totals(si_doc)
     si_doc.save()
     return my_pointer
-
-
 
 ################# YTPL Code End ###########################
 
