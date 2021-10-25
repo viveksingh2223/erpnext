@@ -539,6 +539,7 @@ class SalesInvoice(SellingController):
         if len(exist_list) == 0:
             collection_view = frappe.new_doc("Collection View")
             collection_view.customer_name = self.customer_name
+            collection_view.billing_period= self.billing_period
             collection_view.sales_invoice_number = self.name
             collection_view.invoice_creation_date = self.creation
             collection_view.invoice_created_by = self.owner
@@ -557,6 +558,7 @@ class SalesInvoice(SellingController):
             collection_view = frappe.get_doc("Collection View", exist_list[0]["name"])
             collection_view.customer_name = self.customer_name
             collection_view.sales_invoice_number = self.name
+            collection_view.billing_period= self.billing_period
             collection_view.invoice_creation_date = self.creation
             collection_view.invoice_created_by = self.owner
             collection_view.total_amount = self.rounded_total
