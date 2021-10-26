@@ -1439,8 +1439,9 @@ class SalesInvoice(SellingController):
                         difference_attendance_mapping[difference_attendance.name]= "Difference Attendance"
                         att_list.remove(difference_attendance.name)
                         difference_attendance_list.append(difference_attendance.name)
-                    if len(att_list) > 0:
-                        att_data= self.get_attendance_data(att_list)
+                if len(att_list) > 0:
+                    att_data= self.get_attendance_data(att_list)
+                if difference_attendance_list:
                     if len(difference_attendance_list) > 1:    
                         att_data+= frappe.db.sql("""select atd.work_type, sum(atd.bill_duty) as total_bill_duty,  ctd.quantity, 
                                                     att.include_relieving_charges, atd.wage_rule, att.name, atd.wage_rule_details, att.contract, 
