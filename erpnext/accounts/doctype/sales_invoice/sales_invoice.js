@@ -138,7 +138,6 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
         if(cur_frm.doc.customer){
             frappe.model.with_doc("Customer", cur_frm.doc.customer, function() {
                 var customer = frappe.model.get_doc("Customer", cur_frm.doc.customer);
-                //console.log("@@@@@ customer @@@@",customer)
                 if(customer != undefined && customer.customer_code != undefined && customer != "" && customer.disabled == 0){
                     filters =  {
                         'business_unit': customer.customer_code,
@@ -486,7 +485,7 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
             }
             else{
                 cur_frm.set_value('posting_date', cur_frm.doc.posting_date);
-                cur_frm.set_value('due_date', frappe.datetime.add_days(r.message, 15))
+                cur_frm.set_value('due_date', frappe.datetime.add_days(cur_frm.doc.posting_date, 15))
             }
         }
 		/*************************** Custom YTPL*****************************/
@@ -706,8 +705,6 @@ var map_att_doc = function(opts) {
     /*************** Start Load Items From multiple Attendance *******************/
     var me = this;
 	if(opts.get_query_filters) {
-		console.log(opts)
-		console.log("###################", opts.get_query_filters)
 		opts.get_query = function() {
 			return {filters: opts.get_query_filters};
 		}
@@ -1085,12 +1082,10 @@ frappe.ui.form.on('Sales Invoice', {
                 doc: frm.doc,
                 callback: function(r) {
                     if(r.message){
-                        console.log("####### site address ##########",r.message)
                     }else{
                         cur_frm.set_value('site_address', "");
                         cur_frm.set_value('site_address_display', "");
                         cur_frm.set_value('site_billing_address_gstin', "");
-                        console.log("####### Site Billing Address Not Found ##########",r.message)
                     }
                 }
             })
