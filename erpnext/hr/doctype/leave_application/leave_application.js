@@ -136,12 +136,18 @@ frappe.ui.form.on("Leave Application", {
 	},
 
 	from_date: function(frm) {
+		if(frm.doc.leave_type == undefined){
+			frappe.throw("Please Select Leave Type")
+		}
 		frm.trigger("half_day_datepicker");
 		frm.trigger("calculate_total_days");
         frm.trigger("check_eligibility_for_marriage_leave")
 	},
 
 	to_date: function(frm) {
+		if(frm.doc.leave_type == undefined){
+            frappe.throw("Please Select Leave Type")
+        }
 		frm.trigger("half_day_datepicker");
 		frm.trigger("calculate_total_days");
 	},
