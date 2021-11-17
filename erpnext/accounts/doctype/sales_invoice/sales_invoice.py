@@ -248,16 +248,9 @@ class SalesInvoice(SellingController):
         self.update_prevdoc_status()
         self.update_billing_status_in_dn()
         self.clear_unallocated_mode_of_payments()
+        self.collection_view_entry()
 
         ################# YTPL CODE START ################################################### 
-        exist_list= frappe.get_all('Collection View', filters={'sales_invoice_number': self.name}, fields=['name', 'customer_name'])
-        collection_view = frappe.get_doc("Collection View", exist_list[0]["name"])
-        collection_view.invoice_submission_date= self.modified
-        collection_view.status= "Payment Pending"
-        collection_view.save()
-        collection_view.submit()
-        collection_view.reload()
-       
         ### YTPL CODE Check Bill Duty Of people attendance and billing quantity ##
         update_modified=True
         if self.billing_type == "Standard":
@@ -355,10 +348,10 @@ class SalesInvoice(SellingController):
 
     def on_trash(self):
         self.update_attendance("To Bill")
-        exist_list= frappe.get_all('Collection View', filters={'sales_invoice_number': self.name}, fields=['name', 'customer_name'])
-        if exist_list:
-            collection_view = frappe.get_doc("Collection View", exist_list[0]["name"])
-            collection_view.delete() 
+        #exist_list= frappe.get_all('Collection View', filters={'sales_invoice_number': self.name}, fields=['name', 'customer_name'])
+        #if exist_list:
+            #collection_view = frappe.get_doc("Collection View", exist_list[0]["name"])
+            #collection_view.delete() 
 
     ######## YTPL CODE END ##################
     def update_attendance(self, status, update_modified=True):
@@ -403,7 +396,7 @@ class SalesInvoice(SellingController):
             self.update_attendance("Partially Completed")
         else:
             self.update_attendance("To Bill")
-        self.cancel_collection_view_entry()
+        #self.cancel_collection_view_entry()
         ########################## CUSTOM YTPL CODE ################################################# 
         if not self.is_return:
             self.update_billing_status_for_zero_amount_refdoc("Sales Order")
@@ -431,11 +424,11 @@ class SalesInvoice(SellingController):
 
         unlink_inter_company_invoice(self.doctype, self.name, self.inter_company_invoice_reference)
 
-    def cancel_collection_view_entry(self):
-        exist_list= frappe.get_all('Collection View', filters={'sales_invoice_number': self.name}, fields=['name', 'customer_name'])
-        if exist_list:
-            collection_view = frappe.get_doc("Collection View", exist_list[0]["name"])
-            collection_view.cancel()
+    #def cancel_collection_view_entry(self):
+    #    exist_list= frappe.get_all('Collection View', filters={'sales_invoice_number': self.name}, fields=['name', 'customer_name'])
+    #    if exist_list:
+    #        collection_view = frappe.get_doc("Collection View", exist_list[0]["name"])
+    #        collection_view.cancel()
         
 
     def update_status_updater_args(self):
@@ -531,11 +524,12 @@ class SalesInvoice(SellingController):
         if  self.set_posting_time == 0:
             self.posting_date= get_posting_date(str(self.si_from_date))
         self.due_date= add_days(self.posting_date, 15)
-        self.collection_view_entry() 
+        #self.collection_view_entry() 
 
     def collection_view_entry(self):
-         # create sales invoice in collection view
-        exist_list= frappe.get_all('Collection View', filters={'sales_invoice_number': self.name}, fields=['name', 'customer_name'])
+         # Create collection view
+        exist_list= frappe.db.sql("""select name, customer_name from `tabCollection View` where name like'%s%%' order by name"""%(self.name))
+        print(exist_list)
         if len(exist_list) == 0:
             collection_view = frappe.new_doc("Collection View")
             collection_view.customer_name = self.customer_name
@@ -545,25 +539,41 @@ class SalesInvoice(SellingController):
             collection_view.invoice_created_by = self.owner
             collection_view.total_amount = self.rounded_total
             collection_view.total_gst_amount = self.total_taxes_and_charges
-            collection_view.status = "Draft"
+            collection_view.status = "Payment Pending"
             collection_view.billing_period = self.billing_period
             collection_view.taxes_and_charges = self.taxes_and_charges
+            collection_view.invoice_submission_date= self.modified
             for item in self.items:
                 collection_view.append('collection_view_item', {'work_type': item.item_code, 'rate': item.rate, 'amount': item.amount, 'site_name': item.site_name, 'site_code':item.site})
             for tax in self.taxes:
                 collection_view.append('collection_taxes' , {'type':tax.charge_type, 'account_head': tax.account_head, 'rate': tax.rate, 'amount': tax.tax_amount, 'total': tax.total})
             collection_view.insert()
+            collection_view.save()
+            collection_view.submit()
             collection_view.reload()
         else:
-            collection_view = frappe.get_doc("Collection View", exist_list[0]["name"])
+            name= ""
+            last_invoice_number= None
+            if len(exist_list) == 1:
+                name= self.name + "-1"
+                last_invoice_number= self.name
+            else:
+                temp= exist_list[len(exist_list) - 1][0].rsplit("-", 1)
+                name= self.name+"-"+str(int(temp[1]) + 1)
+                last_invoice_number= exist_list[len(exist_list) - 1][0]    
+            print("@@@@@@@@@@@@@@@@@@", name)
+            collection_view = frappe.new_doc("Collection View")
             collection_view.customer_name = self.customer_name
-            collection_view.sales_invoice_number = self.name
+            #collection_view.amended_from= amended_from
+            collection_view.sales_invoice_number = name
+            collection_view.last_invoice_number= last_invoice_number
             collection_view.billing_period= self.billing_period
             collection_view.invoice_creation_date = self.creation
             collection_view.invoice_created_by = self.owner
             collection_view.total_amount = self.rounded_total
             collection_view.total_gst_amount = self.total_taxes_and_charges
-            collection_view.status = "Draft"
+            collection_view.status = "Payment Pending"
+            collection_view.invoice_submission_date= self.modified
             collection_view.billing_period = self.billing_period
             collection_view.taxes_and_charges = self.taxes_and_charges
             collection_view.collection_view_item= []
@@ -574,6 +584,7 @@ class SalesInvoice(SellingController):
                 collection_view.append('collection_taxes' , {'type':tax.charge_type, 'account_head': tax.account_head, 'rate': tax.rate, 'amount': tax.tax_amount, 'total': tax.total})
             collection_view.save()
             collection_view.reload()
+            collection_view.submit()
         #################### CUSTOM YTPL CODE END#####################
 
     def set_paid_amount(self):
@@ -1564,6 +1575,34 @@ class SalesInvoice(SellingController):
         period= {'from_date': period_from_date, 'to_date': period_to_date}
         self.add_service_charges(period)
         return "Item Inserted Successfully"
+
+    def get_items_for_bonus_billing(self, contract_list):
+        print(contract_list, len(contract_list))
+        if len(contract_list) > 0:
+            all_bill_data= []
+            if len(contract_list) == 1:
+                all_bill_data= frappe.db.sql("""select si.name, si.billing_period, si.customer, sii.site, sii.site_name, sii.salary_structure, sii.item_code, sii.qty 
+                                                from `tabSales Invoice` si inner join `tabSales Invoice Item` sii on si.name= sii.parent
+                                                where si.billing_type in ('Standard', 'Attendance', 'Supplementary') and customer= '%s' and sii.contract='%s'
+                                                and si.si_from_date >= '%s' and si.si_to_date <= '%s'
+                                                group by si.billing_period, sii.site, sii.item_code, sii.salary_structure 
+                                                order by si.si_from_date, si.customer, sii.site, sii.item_code;"""%(self.customer, contract_list[0], self.bonus_bill_from, self.bonus_bill_till_date), as_dict= True)
+            else:
+                all_bill_data= frappe.db.sql("""select si.name, si.billing_period, si.customer, sii.site, sii.site_name, sii.salary_structure, sii.item_code, sii.qty 
+                                                from `tabSales Invoice` si inner join `tabSales Invoice Item` sii on si.name= sii.parent 
+                                                where si.billing_type in ('Standard', 'Attendance', 'Supplementary') and customer= '%s' and sii.contract in %s 
+                                                and si.si_from_date >= '%s' and si.si_to_date <= '%s' 
+                                                group by si.billing_period, sii.site, sii.item_code, sii.salary_structure 
+                                                order by si.si_from_date, si.customer, sii.site, sii.item_code;"""%(self.customer, str(tuple(contract_list)), self.bonus_bill_from, self.bonus_bill_till_date), as_dict= True)
+
+            if all_bill_data:
+                for bill in all_bill_data:
+                    print(bill)
+            else:
+                frappe.throw("No Bill Found For Bonus!!")    
+        else:
+            frappe.throw("Please Select Contract!!")
+        
 
     def rate_revision_si(self, ref_si,item_code, frm_dt,to_dt):
         filters = [['docstatus', '=', 1], ['ref_sales_invoice', '=', ref_si], ['item_code', '=', item_code], ['item_from_date', '=', frm_dt], ['item_to_date', '=', to_dt]]

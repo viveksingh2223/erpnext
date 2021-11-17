@@ -215,6 +215,15 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
             me.frm.set_df_property("arrears_bill_from", "reqd", 0);
             me.frm.set_df_property("billing_period", "reqd", 1);
         }
+        if(me.frm.doc.billing_type=="Bonus") {
+            me.frm.set_df_property("bonus_bill_from", "reqd", 1);
+            me.frm.set_df_property("bonus_bill_till_date", "reqd", 1);
+            me.frm.set_df_property("billing_period", "reqd", 0);
+        }else{
+            me.frm.set_df_property("bonus_bill_from", "reqd", 0);
+            me.frm.set_df_property("bonus_bill_till_date", "reqd", 0);
+            me.frm.set_df_property("billing_period", "reqd", 1);
+        }
 	},
 	billing_period: function() {
 	    frappe.model.clear_table(me.frm.doc, "items");
@@ -306,6 +315,31 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
 	        frappe.msgprint(__("Select Billing Period and Customer to Load Contracts"))
 	    }
 	},
+    get_bonus_btn:function(frm){
+        //if(cur_frm.doc.billing_period != undefined && cur_frm.doc.customer != undefined && cur_frm.doc.billing_period != "" && cur_frm.doc.customer != ""){
+        if(me.frm.doc.customer != undefined && cur_frm.doc.bonus_bill_from != undefined && cur_frm.doc.bonus_bill_till_date != undefined){
+                if((me.frm.doc.billing_type).toUpperCase() == 'BONUS'){
+                    map_bonus_doc({
+                        //method: "erpnext.crm.doctype.contract.contract.make_sales_invoice",
+                        source_doctype: "Site Contract",
+                        target: me.frm,
+                        me:me,
+                        date_field:"start_date",
+                        setters: {
+                            //customer: me.frm.doc.customer || undefined,
+                        },
+                        get_query_filters: {
+                            docstatus: 1,
+                            party_name: ["=", me.frm.doc.customer],
+                            start_date: ['<=', me.frm.doc.bonus_bill_till_date],
+                            end_date: ['>=', me.frm.doc.bonus_bill_from],
+                        }
+                    })
+                }
+        }else{
+            frappe.msgprint(__("Select Customer, Bonus From Date, Bonus Till Date to Load Contracts"))
+        }
+    },
 	get_attendance_btn: function(frm) {
         if(me.frm.doc.billing_type=="Attendance" && me.frm.doc.billing_period && me.frm.doc.customer){
 	        frappe.model.with_doc("Salary Payroll Period", cur_frm.doc.billing_period, function() {
@@ -372,7 +406,6 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
                         },
                         get_query_filters: {
                             docstatus: 1,
-                            status: 'Active',
                             party_name: ["=", me.frm.doc.customer],
                             start_date: ['<=', me.frm.doc.arrears_bill_from],
                         }
@@ -765,6 +798,61 @@ var map_att_doc = function(opts) {
 	}
 	/*************** End Load Items From multiple Attendance *******************/
 }
+/******************* BONUS CALCULATION******************************************/
+var map_bonus_doc = function(opts) {
+    if(opts.get_query_filters) {
+        opts.get_query = function() {
+            return {filters: opts.get_query_filters};
+        }
+    }
+    var _map = function() {
+        frappe.model.clear_table(cur_frm.doc, "items");
+        cur_frm.refresh_field("items");
+        if(cur_frm.doc.customer && cur_frm.doc.bonus_bill_from && cur_frm.doc.bonus_bill_till_date){
+            // Get linked Wage Rule to Rate
+            frappe.call({
+                method: "get_items_for_bonus_billing",
+                doc: cur_frm.doc,
+                args: {'contract_list': opts.source_name},
+                async: false,
+                callback: function(r) {
+                    if(r.message) {
+                        cur_frm.save()
+                        cur_frm.refresh()
+                    }
+                }
+            });
+        }else{
+            frappe.msgprint(__("Select Bonus Bill From Date, Bonus Bill Till Date before load contracts"));
+        }
+    }
+    if(opts.source_doctype) {
+
+        var d = new frappe.ui.form.MultiSelectDialog({
+            doctype: opts.source_doctype,
+            target: opts.target,
+            date_field: opts.date_field || undefined,
+            setters: opts.setters,
+            get_query: opts.get_query,
+            action: function(selections, args) {
+                let values = selections;
+                if(values.length === 0){
+                    frappe.msgprint(__("Please select {0}", [opts.source_doctype]))
+                    return;
+                }
+                opts.source_name = values;
+                opts.setters = args;
+                d.dialog.hide();
+                _map();
+            },
+        });
+    } else if(opts.source_name) {
+        opts.source_name = [opts.source_name];
+        _map();
+    }
+}
+/******************* BONUS CALCULATION END**************************************/
+
 
 var map_arrears_doc= function(opts) {
     if(opts.get_query_filters) {
