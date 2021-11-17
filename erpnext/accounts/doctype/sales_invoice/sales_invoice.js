@@ -406,6 +406,7 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
                         },
                         get_query_filters: {
                             docstatus: 1,
+                            status: 'Active',
                             party_name: ["=", me.frm.doc.customer],
                             start_date: ['<=', me.frm.doc.arrears_bill_from],
                         }
