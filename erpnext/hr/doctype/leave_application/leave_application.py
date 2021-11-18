@@ -59,6 +59,10 @@ class LeaveApplication(Document):
         self.cancel_attendance()
         self.notify_leave_approver() ### custom YTPL CODE
 
+    def on_trash(self):
+        self.status = "Cancelled"
+        self.notify_leave_approver()
+
     def validate_applicable_after(self):
         if self.leave_type:
             leave_type = frappe.get_doc("Leave Type", self.leave_type)
