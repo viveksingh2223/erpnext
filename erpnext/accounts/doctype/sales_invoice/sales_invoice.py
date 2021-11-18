@@ -528,8 +528,7 @@ class SalesInvoice(SellingController):
 
     def collection_view_entry(self):
          # Create collection view
-        exist_list= frappe.db.sql("""select name, customer_name from `tabCollection View` where name like'%s%%' order by name"""%(self.name))
-        print(exist_list)
+        exist_list= frappe.db.sql("""select name, customer_name from `tabCollection View` where name like'%s%%' order by creation"""%(self.name))
         if len(exist_list) == 0:
             collection_view = frappe.new_doc("Collection View")
             collection_view.customer_name = self.customer_name
@@ -547,6 +546,10 @@ class SalesInvoice(SellingController):
                 collection_view.append('collection_view_item', {'work_type': item.item_code, 'rate': item.rate, 'amount': item.amount, 'site_name': item.site_name, 'site_code':item.site})
             for tax in self.taxes:
                 collection_view.append('collection_taxes' , {'type':tax.charge_type, 'account_head': tax.account_head, 'rate': tax.rate, 'amount': tax.tax_amount, 'total': tax.total})
+            report_details= frappe.db.sql("Select DISTINCT report_name from `tabReport Type`", as_dict= True)
+            if report_details:
+                for data in report_details:
+                    collection_view.append('report_details', {'report_type': data.report_name, 'is_attached': 0})
             collection_view.insert()
             collection_view.save()
             collection_view.submit()
@@ -561,10 +564,8 @@ class SalesInvoice(SellingController):
                 temp= exist_list[len(exist_list) - 1][0].rsplit("-", 1)
                 name= self.name+"-"+str(int(temp[1]) + 1)
                 last_invoice_number= exist_list[len(exist_list) - 1][0]    
-            print("@@@@@@@@@@@@@@@@@@", name)
             collection_view = frappe.new_doc("Collection View")
             collection_view.customer_name = self.customer_name
-            #collection_view.amended_from= amended_from
             collection_view.sales_invoice_number = name
             collection_view.last_invoice_number= last_invoice_number
             collection_view.billing_period= self.billing_period
@@ -582,9 +583,14 @@ class SalesInvoice(SellingController):
             collection_view.collection_taxes= []
             for tax in self.taxes:
                 collection_view.append('collection_taxes' , {'type':tax.charge_type, 'account_head': tax.account_head, 'rate': tax.rate, 'amount': tax.tax_amount, 'total': tax.total})
+            report_details= frappe.db.sql("Select DISTINCT report_name from `tabReport Type`", as_dict= True)
+            collection_view.report_details= []
+            if report_details:
+                for data in report_details:
+                    collection_view.append('report_details', {'report_type': data.report_name, 'is_attached': 0})
             collection_view.save()
-            collection_view.reload()
             collection_view.submit()
+            collection_view.reload()
         #################### CUSTOM YTPL CODE END#####################
 
     def set_paid_amount(self):
