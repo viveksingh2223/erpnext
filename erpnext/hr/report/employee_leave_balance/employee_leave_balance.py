@@ -32,40 +32,68 @@ def get_columns(leave_types):
 
 def get_data(filters, leave_types):
 	user = frappe.session.user
+	roles= frappe.get_roles(user)
+	role_to_be_skip= ['Administrator', 'HR Manager', 'HR User']
 	allocation_records_based_on_to_date = get_leave_allocation_records(filters.to_date)
 	allocation_records_based_on_from_date = get_leave_allocation_records(filters.from_date)
 
 	if filters.to_date <= filters.from_date:
 		frappe.throw(_("From date can not be greater than than To date"))
-	active_employees = frappe.get_all("Employee",
-		filters = { "status": "Active", "company": filters.company, "employee_type": 'MORGAN STAFF'},
-		fields = ["name", "employee_name", "department", "user_id"])
-	if filters.get('employee'):
-		active_employees = frappe.get_all("Employee", filters = { "status": "Active", "company": filters.company, "employee_type": 'MORGAN STAFF', 'name': filters.get('employee')}, fields = ["name", "employee_name", "department", "user_id"])
+
+	active_employees= []
+	if any(role in role_to_be_skip for role in roles) ==  True:
+		active_employees = frappe.get_all("Employee",
+			filters = { "status": "Active", "company": filters.company, "employee_type": 'MORGAN STAFF'},
+			fields = ["name", "employee_name", "department", "user_id"])
+	elif 'Leave Approver' in roles or 'Leave Viewer' in roles:
+		approvers_department= []
+		department_list= frappe.db.sql("""select parent from `tabDepartment Approver` where approver= '%s'"""%(user), as_dict= True)
+		for department in department_list:
+			approvers_department.append(department.parent)
+		active_employees= frappe.get_all("Employee",
+            filters = { "status": "Active", "company": filters.company, "employee_type": 'MORGAN STAFF', 'department': ['in', approvers_department]},
+            fields = ["name", "employee_name", "department", "user_id"])
+		if filters.get('employee'):
+			active_employees = frappe.get_all("Employee", 
+							filters = { "status": "Active", "company": filters.company, "employee_type": 'MORGAN STAFF', 
+										'name': filters.get('employee'), 'department': ['in', approvers_department]}, 
+							fields = ["name", "employee_name", "department", "user_id"])
 	data = []
 	for employee in active_employees:
-		leave_approvers = get_approvers(employee.department)
-		if (len(leave_approvers) and user in leave_approvers) or (user in ["Administrator", employee.user_id]) or ("HR Manager" in frappe.get_roles(user)):
-			row = [employee.name, employee.employee_name, employee.department]
-
-			for leave_type in leave_types:
-				# leaves taken
-				leaves_taken = get_approved_leaves_for_period(employee.name, leave_type,
-					filters.from_date, filters.to_date)
-				print("####leaves_taken##", leaves_taken)
-				# opening balance
-				opening = get_leave_balance_on(employee.name, leave_type, filters.from_date,
-					allocation_records_based_on_to_date.get(employee.name, frappe._dict()))
-
-				# closing balance
-				closing = get_leave_balance_on(employee.name, leave_type, filters.to_date,
-					allocation_records_based_on_to_date.get(employee.name, frappe._dict()))
-
-				row += [opening, leaves_taken, closing]
-
-			data.append(row)
-
+		row = [employee.name, employee.employee_name, employee.department]
+		for leave_type in leave_types:
+			# leaves taken
+			leaves_taken = get_approved_leaves_for_period(employee.name, leave_type, filters.from_date, filters.to_date)
+			# opening balance
+			opening = get_leave_balance_on(employee.name, leave_type, filters.from_date, allocation_records_based_on_to_date.get(employee.name, frappe._dict()))
+			# closing balance
+			closing = get_leave_balance_on(employee.name, leave_type, filters.to_date, allocation_records_based_on_to_date.get(employee.name, frappe._dict()))
+			row += [opening, leaves_taken, closing]
+		data.append(row)
 	return data
+	#for employee in active_employees:
+	#	leave_approvers = get_approvers(employee.department)
+	#	print(leave_approvers)
+	#	if (len(leave_approvers) and user in leave_approvers) or (user in ["Administrator", employee.user_id]) or ("HR Manager" in frappe.get_roles(user)):
+	#		row = [employee.name, employee.employee_name, employee.department]
+
+	#		for leave_type in leave_types:
+	#			# leaves taken
+	#			leaves_taken = get_approved_leaves_for_period(employee.name, leave_type,
+	#				filters.from_date, filters.to_date)
+	#			# opening balance
+	#			opening = get_leave_balance_on(employee.name, leave_type, filters.from_date,
+	#				allocation_records_based_on_to_date.get(employee.name, frappe._dict()))
+
+	#			# closing balance
+	#			closing = get_leave_balance_on(employee.name, leave_type, filters.to_date,
+	#				allocation_records_based_on_to_date.get(employee.name, frappe._dict()))
+	#
+	#			row += [opening, leaves_taken, closing]
+	#
+	#		data.append(row)
+
+	#return data
 
 def get_approvers(department):
 	if not department:
