@@ -75,6 +75,7 @@ frappe.ui.form.on("Leave Application", {
 						leave_details = r.message['leave_allocation'];
 					}
 					if (!r.exc && r.message['leave_approver']) {
+						console.log("@@@@@@@@@@@ THIS IS CALLED")
 						frm.set_value('leave_approver', r.message['leave_approver']);
 					}
 				}
@@ -229,7 +230,11 @@ frappe.ui.form.on("Leave Application", {
 				},
 				callback: function(r) {
 					if (r && r.message) {
-						frm.set_value('leave_approver', r.message);
+						if(r.message['leave_approver'] == frappe.session.user){
+							frm.set_value('leave_approver', undefined);
+						}{
+							frm.set_value('leave_approver', r.message['leave_approver']);
+                        }
 					}
 				}
 			});

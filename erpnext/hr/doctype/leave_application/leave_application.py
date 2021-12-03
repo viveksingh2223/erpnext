@@ -36,11 +36,6 @@ class LeaveApplication(Document):
             self.validate_optional_leave()
         self.validate_applicable_after()
 
-    def on_update(self):
-        if self.status == "Open" and self.docstatus < 1:
-            # notify leave approver about creation
-            self.notify_leave_approver()
-
     def on_submit(self):
         if self.status == "Open":
             frappe.throw(_("Only Leave Applications with status 'Approved' and 'Rejected' can be submitted"))
@@ -375,14 +370,17 @@ class LeaveApplication(Document):
     def on_update(self):
         ## CUSTOM YTPL START
         if self.status == 'Approved':
-            self.workflow_state == 'Approved'
+            self.workflow_state = 'Approved'
+            print("@@@@@@1", self.workflow_state)
         elif self.status == 'Rejected':
-            self.workflow_state == 'Rejected'
+            self.workflow_state = 'Rejected'
+            print("@@@@@@2", self.workflow_state)
         else:pass
         ## CUSTOM YTPL START END
         if self.status == "Open" and self.docstatus < 1:
             # notify leave approver about creation
             self.notify_leave_approver()
+        print(self.status, self.workflow_state)
     
     ## CUSTOM YTPL START
     def before_submit(self):

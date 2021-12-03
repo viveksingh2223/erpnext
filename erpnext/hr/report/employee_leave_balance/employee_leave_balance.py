@@ -47,7 +47,12 @@ def get_data(filters, leave_types):
 			fields = ["name", "employee_name", "department", "user_id"])
 	elif 'Leave Approver' in roles or 'Leave Viewer' in roles:
 		approvers_department= []
-		department_list= frappe.db.sql("""select parent from `tabDepartment Approver` where approver= '%s'"""%(user), as_dict= True)
+		department_list= []
+		if 'Leave Approver' in roles:
+			department_list= frappe.db.sql("""select parent from `tabDepartment Approver` where approver= '%s'"""%(user), as_dict= True)
+		elif 'Leave Viewer' in roles:
+			department_list= frappe.db.sql("""select parent from `tabDepartment Viewer` where viewer= '%s'"""%(user), as_dict= True)
+		else: pass	
 		for department in department_list:
 			approvers_department.append(department.parent)
 		active_employees= frappe.get_all("Employee",
