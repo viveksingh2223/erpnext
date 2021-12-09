@@ -167,6 +167,29 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
                 }).toggleClass('btn-primary'); 
             }
         }
+        if(me.frm.doc.billing_type=="Rate Revision") {
+            me.frm.set_df_property("arrears_bill_from", "reqd", 1);
+            me.frm.set_df_property("billing_period", "reqd", 0);
+            me.frm.set_df_property("bonus_bill_from", "reqd", 0);
+            me.frm.set_df_property("bonus_bill_till_date", "reqd", 0);
+            me.frm.set_df_property("agency_charges_percentage", "reqd", 0);
+        }
+        else if(me.frm.doc.billing_type=="Bonus") {
+            me.frm.set_df_property("bonus_bill_from", "reqd", 1);
+            me.frm.set_df_property("bonus_bill_till_date", "reqd", 1);
+            me.frm.set_df_property("billing_period", "reqd", 0);
+            me.frm.set_df_property("agency_charges_percentage", "reqd", 1);
+        }else{
+            me.frm.set_df_property("bonus_bill_from", "reqd", 0);
+            me.frm.set_df_property("bonus_bill_till_date", "reqd", 0);
+            me.frm.set_df_property("agency_charges_percentage", "reqd", 0);
+            me.frm.set_df_property("billing_period", "reqd", 1);
+        }
+        me.frm.refresh_field('arrears_bill_from')
+        me.frm.refresh_field('billing_period')
+        me.frm.refresh_field('bonus_bill_from')
+        me.frm.refresh_field('bonus_bill_till_date')
+        me.frm.refresh_field('agency_charges_percentage')
         //################ YTPL CUSTOM CODE END#########################
 	},
 
@@ -211,19 +234,26 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
         if(me.frm.doc.billing_type=="Rate Revision") {
             me.frm.set_df_property("arrears_bill_from", "reqd", 1);
             me.frm.set_df_property("billing_period", "reqd", 0);
-        }else {
-            me.frm.set_df_property("arrears_bill_from", "reqd", 0);
-            me.frm.set_df_property("billing_period", "reqd", 1);
+            me.frm.set_df_property("bonus_bill_from", "reqd", 0);
+            me.frm.set_df_property("bonus_bill_till_date", "reqd", 0);
+            me.frm.set_df_property("agency_charges_percentage", "reqd", 0);
         }
-        if(me.frm.doc.billing_type=="Bonus") {
+        else if(me.frm.doc.billing_type=="Bonus") {
             me.frm.set_df_property("bonus_bill_from", "reqd", 1);
             me.frm.set_df_property("bonus_bill_till_date", "reqd", 1);
             me.frm.set_df_property("billing_period", "reqd", 0);
+            me.frm.set_df_property("agency_charges_percentage", "reqd", 1);
         }else{
             me.frm.set_df_property("bonus_bill_from", "reqd", 0);
             me.frm.set_df_property("bonus_bill_till_date", "reqd", 0);
+            me.frm.set_df_property("agency_charges_percentage", "reqd", 0);    
             me.frm.set_df_property("billing_period", "reqd", 1);
         }
+        me.frm.refresh_field('arrears_bill_from')
+        me.frm.refresh_field('billing_period')
+        me.frm.refresh_field('bonus_bill_from')
+        me.frm.refresh_field('bonus_bill_till_date')
+        me.frm.refresh_field('agency_charges_percentage')
 	},
 	billing_period: function() {
 	    frappe.model.clear_table(me.frm.doc, "items");
@@ -242,6 +272,10 @@ erpnext.accounts.SalesInvoiceController = erpnext.selling.SellingController.exte
             })
         }
 	},
+    agency_charges_percentage: function(){
+        frappe.model.clear_table(me.frm.doc, "items");
+        me.frm.refresh_field('items')
+    },
 	/*************************** Custom YTPL*****************************/
 	sales_order_btn: function() {
 		var me = this;

@@ -1583,32 +1583,87 @@ class SalesInvoice(SellingController):
         return "Item Inserted Successfully"
 
     def get_items_for_bonus_billing(self, contract_list):
-        print(contract_list, len(contract_list))
+        self.si_from_date= self.bonus_bill_from
+        self.si_to_date= self.bonus_bill_till_date
+        self.set_posting_date= 1
         if len(contract_list) > 0:
+            company_income_acount, cost_center= frappe.db.get_value('Company', self.company, ['default_income_account', 'cost_center'])
             all_bill_data= []
             if len(contract_list) == 1:
-                all_bill_data= frappe.db.sql("""select si.name, si.billing_period, si.customer, sii.site, sii.site_name, sii.salary_structure, sii.item_code, sii.qty 
+                all_bill_data= frappe.db.sql("""select si.name, si.si_from_date, si.si_to_date, si.billing_period, si.customer, sii.site, sii.site_name, sii.salary_structure, sii.item_code, sii.qty, sii.contract 
                                                 from `tabSales Invoice` si inner join `tabSales Invoice Item` sii on si.name= sii.parent
                                                 where si.billing_type in ('Standard', 'Attendance', 'Supplementary') and customer= '%s' and sii.contract='%s'
                                                 and si.si_from_date >= '%s' and si.si_to_date <= '%s'
                                                 group by si.billing_period, sii.site, sii.item_code, sii.salary_structure 
-                                                order by si.si_from_date, si.customer, sii.site, sii.item_code;"""%(self.customer, contract_list[0], self.bonus_bill_from, self.bonus_bill_till_date), as_dict= True)
+                                                order by si.si_from_date, sii.site, sii.item_code;"""%(self.customer, contract_list[0], self.bonus_bill_from, self.bonus_bill_till_date), as_dict= True)
             else:
-                all_bill_data= frappe.db.sql("""select si.name, si.billing_period, si.customer, sii.site, sii.site_name, sii.salary_structure, sii.item_code, sii.qty 
+                all_bill_data= frappe.db.sql("""select si.name, si.si_from_date, si.si_to_date, si.billing_period, si.customer, sii.site, sii.site_name, sii.salary_structure, sii.item_code, sii.qty, sii.contract 
                                                 from `tabSales Invoice` si inner join `tabSales Invoice Item` sii on si.name= sii.parent 
                                                 where si.billing_type in ('Standard', 'Attendance', 'Supplementary') and customer= '%s' and sii.contract in %s 
                                                 and si.si_from_date >= '%s' and si.si_to_date <= '%s' 
                                                 group by si.billing_period, sii.site, sii.item_code, sii.salary_structure 
-                                                order by si.si_from_date, si.customer, sii.site, sii.item_code;"""%(self.customer, str(tuple(contract_list)), self.bonus_bill_from, self.bonus_bill_till_date), as_dict= True)
+                                                order by si.si_from_date, sii.site, sii.item_code;"""%(self.customer, str(tuple(contract_list)), self.bonus_bill_from, self.bonus_bill_till_date), as_dict= True)
 
             if all_bill_data:
-                for bill in all_bill_data:
-                    print(bill)
+                for row in all_bill_data:
+                    rate, wage_rule_details= self.get_rate_for_bonus(row.salary_structure, row.si_from_date, row.si_to_date, row.billing_period)
+                    self.append('items',{'rate': float(rate),
+                                        'price_list_rate': float(rate),
+                                        'item_code': row.item_code,
+                                        'item_name': row.item_code,
+                                        'description': row.item_code,
+                                        'bill_period': row.billing_period,
+                                        'uom': 'Nos',
+                                        'qty': int(row.qty),
+                                        'contract': row.contract,
+                                        'contract_quantity': row.quantity,
+                                        'site': row.site,
+                                        'salary_structure': row.salary_structure,
+                                        'ss_revision_name': wage_rule_details,
+                                        'ss_revision_rate': float(rate),
+                                        'item_from_date': row.si_from_date,
+                                        'item_to_date': row.si_to_date,
+                                        'income_account': company_income_acount,
+                                        'cost_center': cost_center
+                                    }
+                            )
+                period= frappe.get_doc('Salary Payroll Period', all_bill_data[0]['billing_period'])
+                self.add_service_charges(period)
             else:
                 frappe.throw("No Bill Found For Bonus!!")    
         else:
             frappe.throw("Please Select Contract!!")
-        
+        return "Bonus Calculated Successfully"
+
+    def get_rate_for_bonus(self, wage_structure, from_date, to_date, period):
+        wage_rule= frappe.get_doc('Wage Structure', wage_structure)
+        period_total_days = date_diff(to_date, from_date) + 1
+        bonus_percentage= basic= da=  0.0
+        rate= 0.0
+        wage_rule_details= None
+        RETDAYS= None
+        for i in range(0, len(wage_rule.wage_rule_details)):
+            if getdate(wage_rule.wage_rule_details[i].from_date) <= getdate(from_date) and getdate(wage_rule.wage_rule_details[i].to_date) >= getdate(to_date):
+                wage_rule_details= wage_rule.wage_rule_details[i].name
+                if wage_rule.wage_rule_details[i].bonus == 'No':
+                    bonus_percentage= wage_rule.wage_rule_details[i].bonus_percentage
+                    if wage_rule.wage_rule_details[i].wage_days.upper() == "FIXED":
+                        RETDAYS = float(wage_rule.wage_rule_details[i].total_wage_days)
+                        basic= (wage_rule.wage_rule_details[i].wage_basic * RETDAYS) / RETDAYS
+                        da= (wage_rule.wage_rule_details[i].dearness_allowance * RETDAYS)/ RETDAYS
+                    else:
+                        RETDAYS= period_total_days
+                        basic= (wage_rule.wage_rule_details[i].wage_basic * wage_rule.wage_rule_details[i].total_wage_days) / RETDAYS
+                        da= (wage_rule.wage_rule_details[i].dearness_allowance * wage_rule.wage_rule_details[i].total_wage_days) / RETDAYS
+                break
+        if (basic > 0.0 or da > 0.0) and bonus_percentage > 0:
+            if self.agency_charges_percentage > 0.0:
+                rate= round(((((basic + da) * bonus_percentage) / 100)  +  (((basic + da) * bonus_percentage) / 100) * self.agency_charges_percentage / 100), 2)
+            else:
+                rate= round((((basic + da) * bonus_percentage) / 100), 2)
+        else:
+            frappe.throw("In Wage Structure %s For Period %s Basic Or Dearness Allowance Should be Greater Than Zero!! |OR| Bonus Percentage Should Be Greater Than Zero"%(wage_structure, period))
+        return rate, wage_rule_details 
 
     def rate_revision_si(self, ref_si,item_code, frm_dt,to_dt):
         filters = [['docstatus', '=', 1], ['ref_sales_invoice', '=', ref_si], ['item_code', '=', item_code], ['item_from_date', '=', frm_dt], ['item_to_date', '=', to_dt]]
