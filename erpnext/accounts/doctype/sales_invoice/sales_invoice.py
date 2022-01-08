@@ -261,7 +261,7 @@ class SalesInvoice(SellingController):
                 attendance= frappe.db.sql("""select pa.name, sum(atd.bill_duty) as total_bill_duty from `tabPeople Attendance` pa inner join `tabAttendance Details` atd on pa.name= atd.parent where pa.contract= '%s' and pa.attendance_period= '%s'"""%(contract.contract, self.billing_period), as_dict= True)
                 if len(attendance) > 0:
                     if attendance[0]["name"] != None and attendance[0]["name"] != 'None': 
-                        if attendance[0]["total_bill_duty"] > contract.total_bill_duty:
+                        if round(attendance[0]["total_bill_duty"], 2) > round(contract.total_bill_duty, 2):
                             frappe.db.set_value("People Attendance", attendance[0]["name"], "status", 'Partially Completed', update_modified=update_modified)
                         else:
                             frappe.db.set_value("People Attendance", attendance[0]["name"], "status", 'Completed', update_modified=update_modified)
@@ -275,7 +275,7 @@ class SalesInvoice(SellingController):
                                             inner join `tabAttendance Details` atd on pa.name= atd.parent 
                                             where pa.name= '%s'"""%(attendance.attendance), as_dict= True)
                     if len(people_attendance) > 0:
-                        if people_attendance[0]["total_bill_duty"] > attendance.total_bill_duty:
+                        if round(people_attendance[0]["total_bill_duty"], 2) > round(attendance.total_bill_duty, 2):
                             frappe.db.set_value("People Attendance", attendance.attendance, "status", 'Partially Completed', update_modified=update_modified)
                         else:
                             frappe.db.set_value("People Attendance", attendance.attendance, "status", 'Completed', update_modified=update_modified)
@@ -284,7 +284,7 @@ class SalesInvoice(SellingController):
                                                             inner join `tabDifference Attendance Details` atd on pa.name= atd.parent 
                                                             where pa.name= '%s'"""%(attendance.attendance), as_dict= True)
                     if len(difference_attendance) > 0:
-                        if difference_attendance[0]["total_bill_duty"] > attendance.total_bill_duty:
+                        if round(difference_attendance[0]["total_bill_duty"], 2) > round(attendance.total_bill_duty, 2):
                             frappe.db.set_value("Difference Attendance", attendance.attendance, "status", 'Partially Completed', update_modified=update_modified)
                         else:
                             frappe.db.set_value("Difference Attendance", attendance.attendance, "status", 'Completed', update_modified=update_modified)
@@ -1825,10 +1825,12 @@ class SalesInvoice(SellingController):
     
     def get_site_count(self):
         data= frappe.db.sql("select distinct site_name from `tabSales Invoice Item` where parent= '%s'"%(self.name), as_dict= True)
+        print("site d", data)
         return len(data)
 
     def get_data_work_type_wise(self):
         data= frappe.db.sql("""select item_code, item_name, sum(qty) as qty, rate, sum(amount) as amount, ss_revision_name from `tabSales Invoice Item` where parent= '%s' group by item_code, rate;"""%(self.name), as_dict= True)
+        print("wrk_type", data)
         return data
 
     #################### CUSTOM YTPL END#######################################
