@@ -44,7 +44,7 @@ def get_approvers(doctype, txt, searchfield, start, page_len, filters):
     if len(approvers) > 0:
         for i in range(len(approvers)):			
             if frappe.session.user in approvers[i]:
-	            approvers.pop(i)
+                approvers.pop(i)
+                break
 	####### CUSTOM YTPL CODE TO REMOVE SELF APPROVAL END
-    print("@@@@@@@@@@APPROVERS", approvers)
     return approvers
