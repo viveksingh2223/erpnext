@@ -1658,9 +1658,9 @@ class SalesInvoice(SellingController):
                 break
         if (basic > 0.0 or da > 0.0) and bonus_percentage > 0:
             if self.agency_charges_percentage > 0.0:
-                rate= round(((((basic + da) * bonus_percentage) / 100)  +  (((basic + da) * bonus_percentage) / 100) * self.agency_charges_percentage / 100), 2)
+                rate= round(((((basic + da) * bonus_percentage) / 100)  +  (((basic + da) * bonus_percentage) / 100) * self.agency_charges_percentage / 100), 2) / RETDAYS 
             else:
-                rate= round((((basic + da) * bonus_percentage) / 100), 2)
+                rate= round((((basic + da) * bonus_percentage) / 100), 2) / RETDAYS
         else:
             frappe.throw("In Wage Structure %s For Period %s Basic Or Dearness Allowance Should be Greater Than Zero!! |OR| Bonus Percentage Should Be Greater Than Zero"%(wage_structure, period))
         return rate, wage_rule_details 
